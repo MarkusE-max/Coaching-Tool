@@ -60,3 +60,7 @@ footer { border-top: 1px solid #e2e9e4; padding: 22px 0; font-size: 12px; color:
     .dashboard-heading form { margin-top: 0; }
     .login-panel { padding-top: 60px; }
 }
+
+.client-tools-link { margin-top: 22px; }
+.client-tools-link a { color: #35695b; font-weight: 650; text-decoration: none; }
+.client-tools-link a:hover { text-decoration: underline; }
