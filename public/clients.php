@@ -44,7 +44,7 @@ try {
         $email = trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : '');
         $phone = trim(is_string($_POST['telefon'] ?? null) ? $_POST['telefon'] : '');
         $owner = $isAdmin ? filter_var($_POST['benutzer_id'] ?? null, FILTER_VALIDATE_INT) : (int) $user['id'];
-        if ($first === '' || $last === '' || mb_strlen($first) > 100 || mb_strlen($last) > 100) {
+        if ($first === '' || $last === '' || strlen($first) > 400 || strlen($last) > 400) {
             throw new InvalidArgumentException('Bitte Vor- und Nachnamen eintragen (jeweils höchstens 100 Zeichen).');
         }
         if ($email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190)) {
