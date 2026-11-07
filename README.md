@@ -33,9 +33,9 @@ Only `public/` should be the document root. Keep the private configuration and a
 2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, SELECT/INSERT/UPDATE on `klienten`, SELECT/INSERT/UPDATE on `termine`, SELECT/INSERT/UPDATE on `coaching_sitzungsnotizen` and `coaching_ziele`, and SELECT/INSERT on `login_versuche`.
 3. Copy `config.example.php` to `config.local.php` in the project root on the NAS and set the host, port, username and password.
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
-5. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
-6. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`.
-7. Back up MariaDB, import `database/migrations/001_sitzungsnotizen_ziele.sql` into `coaching_tool`, then copy the current PHP pages from `public/` to the NAS.
+5. Back up MariaDB and import `database/migrations/001_sitzungsnotizen_ziele.sql` into `coaching_tool`. It adds the private session-note and goal tables; it does not alter the existing client or appointment tables.
+6. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
+7. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated PHP pages from `public/` to the NAS.
 
 ## First administrator setup
 
