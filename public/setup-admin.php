@@ -151,9 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setupReady && $database instanceof
             || $email === '' || strlen($email) > 190 || !filter_var($email, FILTER_VALIDATE_EMAIL)
             || $firstName === '' || strlen($firstName) > 100
             || $lastName === '' || strlen($lastName) > 100
-            || strlen($password) < 14 || strlen($password) > 4096
+            || strlen($password) < 8 || strlen($password) > 4096
+            || preg_match('/[^A-Za-z0-9]/', $password) !== 1
             || !hash_equals($password, $passwordConfirm)) {
-            $message = 'Bitte prüfe die Angaben. Das Passwort muss mindestens 14 Zeichen lang sein und beide Eingaben müssen übereinstimmen.';
+            $message = 'Bitte prüfe die Angaben. Das Passwort muss mindestens 8 Zeichen lang sein, ein Sonderzeichen enthalten und beide Eingaben müssen übereinstimmen.';
         } else {
             try {
                 $lock = (int) $database->query("SELECT GET_LOCK('coaching_tool_first_admin', 0)")->fetchColumn();
@@ -239,10 +240,10 @@ $token = setupCsrfToken();
                     <input id="vorname" name="vorname" type="text" maxlength="100" autocomplete="given-name" required>
                     <label for="nachname">Nachname</label>
                     <input id="nachname" name="nachname" type="text" maxlength="100" autocomplete="family-name" required>
-                    <label for="password">Passwort (mindestens 14 Zeichen)</label>
-                    <input id="password" name="password" type="password" minlength="14" autocomplete="new-password" required>
+                    <label for="password">Passwort (mindestens 8 Zeichen und ein Sonderzeichen)</label>
+                    <input id="password" name="password" type="password" minlength="8" pattern="(?=.*[^A-Za-z0-9]).{8,}" title="Mindestens 8 Zeichen und mindestens ein Sonderzeichen." autocomplete="new-password" required>
                     <label for="password_confirm">Passwort wiederholen</label>
-                    <input id="password_confirm" name="password_confirm" type="password" minlength="14" autocomplete="new-password" required>
+                    <input id="password_confirm" name="password_confirm" type="password" minlength="8" pattern="(?=.*[^A-Za-z0-9]).{8,}" title="Mindestens 8 Zeichen und mindestens ein Sonderzeichen." autocomplete="new-password" required>
                     <button class="primary-button" type="submit">Administratorkonto anlegen</button>
                 </form>
                 <p class="login-note">Nach erfolgreicher Einrichtung ist diese Seite automatisch gesperrt. Entferne danach den Einrichtungsschlüssel aus config.local.php.</p>
