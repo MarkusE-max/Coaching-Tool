@@ -21,6 +21,17 @@ if (!is_array($user) || !isset($user['id'], $user['role'], $user['name'])) {
     exit;
 }
 $database = coachingDatabase();
+$clientColumns = $database->query('SHOW COLUMNS FROM klienten')->fetchAll(PDO::FETCH_COLUMN);
+$emailColumn = null;
+foreach (['email', 'e_mail', 'mail', 'email_adresse'] as $candidate) {
+    if (in_array($candidate, $clientColumns, true)) { $emailColumn = $candidate; break; }
+}
+$phoneColumn = null;
+foreach (['telefon', 'telefonnummer', 'telefon_nr', 'phone', 'mobil'] as $candidate) {
+    if (in_array($candidate, $clientColumns, true)) { $phoneColumn = $candidate; break; }
+}
+$emailSelect = $emailColumn !== null ? 'k.' . $emailColumn . ' AS email' : 'NULL AS email';
+$phoneSelect = $phoneColumn !== null ? 'k.' . $phoneColumn . ' AS telefon' : 'NULL AS telefon';
 $token = $_SESSION['csrf_token'] ?? '';
 if (!is_string($token) || strlen($token) !== 64) {
     $token = bin2hex(random_bytes(32));
@@ -72,19 +83,28 @@ try {
             if (!$check->fetchColumn()) {
                 throw new InvalidArgumentException('Dieser Klient wurde nicht gefunden oder gehört nicht zu deinem Zugang.');
             }
-            $update = $database->prepare('UPDATE klienten SET vorname = :first, nachname = :last, email = :email, telefon = :phone, benutzer_id = :owner WHERE id = :id');
-            $update->execute(['first' => $first, 'last' => $last, 'email' => $email ?: null, 'phone' => $phone ?: null, 'owner' => $owner, 'id' => $id]);
+            $set = ['vorname = :first', 'nachname = :last', 'benutzer_id = :owner'];
+            $updateParams = ['first' => $first, 'last' => $last, 'owner' => $owner, 'id' => $id];
+            if ($emailColumn !== null) { $set[] = $emailColumn . ' = :email'; $updateParams['email'] = $email ?: null; }
+            if ($phoneColumn !== null) { $set[] = $phoneColumn . ' = :phone'; $updateParams['phone'] = $phone ?: null; }
+            $update = $database->prepare('UPDATE klienten SET ' . implode(', ', $set) . ' WHERE id = :id');
+            $update->execute($updateParams);
             $message = 'Die Klientendaten wurden gespeichert.';
         } else {
-            $insert = $database->prepare('INSERT INTO klienten (benutzer_id, vorname, nachname, email, telefon) VALUES (:owner, :first, :last, :email, :phone)');
-            $insert->execute(['owner' => $owner, 'first' => $first, 'last' => $last, 'email' => $email ?: null, 'phone' => $phone ?: null]);
+            $insertColumns = ['benutzer_id', 'vorname', 'nachname'];
+            $insertValues = [':owner', ':first', ':last'];
+            $insertParams = ['owner' => $owner, 'first' => $first, 'last' => $last];
+            if ($emailColumn !== null) { $insertColumns[] = $emailColumn; $insertValues[] = ':email'; $insertParams['email'] = $email ?: null; }
+            if ($phoneColumn !== null) { $insertColumns[] = $phoneColumn; $insertValues[] = ':phone'; $insertParams['phone'] = $phone ?: null; }
+            $insert = $database->prepare('INSERT INTO klienten (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $insertValues) . ')');
+            $insert->execute($insertParams);
             $message = 'Der Klient wurde angelegt.';
         }
         $values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'email' => '', 'telefon' => '', 'benutzer_id' => (int) $user['id']];
     } elseif (isset($_GET['edit'])) {
         $id = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($id === false || (int) $id < 1) throw new InvalidArgumentException('Ungültige Klienten-ID.');
-        $query = $database->prepare('SELECT id, vorname, nachname, email, telefon, benutzer_id FROM klienten WHERE id = :id' . ($isAdmin ? '' : ' AND benutzer_id = :owner'));
+        $query = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ', benutzer_id FROM klienten WHERE id = :id' . ($isAdmin ? '' : ' AND benutzer_id = :owner'));
         $params = ['id' => (int) $id];
         if (!$isAdmin) $params['owner'] = (int) $user['id'];
         $query->execute($params);
@@ -98,18 +118,25 @@ try {
     $error = 'Die Änderung konnte nicht gespeichert werden. Bitte prüfe die Datenbankrechte und die Verbindung.';
 }
 
-$ownerQuery = $isAdmin
-    ? $database->query("SELECT id, vorname, nachname FROM benutzer WHERE aktiv = 1 AND rolle = 'coach' ORDER BY nachname, vorname")
-    : null;
-$owners = $ownerQuery ? $ownerQuery->fetchAll(PDO::FETCH_ASSOC) : [];
-if ($isAdmin && $owners === []) $error = 'Es gibt kein aktives Coach-Konto, dem Klienten zugeordnet werden können.';
-if ($isAdmin) {
-    $listQuery = $database->query('SELECT k.id, k.vorname, k.nachname, k.email, k.telefon, k.benutzer_id, b.vorname AS coach_vorname, b.nachname AS coach_nachname FROM klienten k LEFT JOIN benutzer b ON b.id = k.benutzer_id ORDER BY k.nachname, k.vorname LIMIT 200');
-} else {
-    $listQuery = $database->prepare('SELECT id, vorname, nachname, email, telefon FROM klienten WHERE benutzer_id = :owner ORDER BY nachname, vorname LIMIT 200');
-    $listQuery->execute(['owner' => (int) $user['id']]);
+try {
+    $ownerQuery = $isAdmin
+        ? $database->query("SELECT id, vorname, nachname FROM benutzer WHERE aktiv = 1 AND rolle = 'coach' ORDER BY nachname, vorname")
+        : null;
+    $owners = $ownerQuery ? $ownerQuery->fetchAll(PDO::FETCH_ASSOC) : [];
+    if ($isAdmin && $owners === []) $error = 'Es gibt kein aktives Coach-Konto. Lege zuerst eines über Coach-Konten verwalten an.';
+    if ($isAdmin) {
+        $listQuery = $database->query('SELECT k.id, k.vorname, k.nachname, ' . $emailSelect . ', ' . $phoneSelect . ', k.benutzer_id, b.vorname AS coach_vorname, b.nachname AS coach_nachname FROM klienten k LEFT JOIN benutzer b ON b.id = k.benutzer_id ORDER BY k.nachname, k.vorname LIMIT 200');
+    } else {
+        $listQuery = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ' FROM klienten WHERE benutzer_id = :owner ORDER BY nachname, vorname LIMIT 200');
+        $listQuery->execute(['owner' => (int) $user['id']]);
+    }
+    $clients = $listQuery->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $exception) {
+    error_log('Coaching Tool clients page failed: ' . $exception->getMessage());
+    $owners = [];
+    $clients = [];
+    $error = 'Klienten und Coaches konnten nicht geladen werden. Prüfe die Spalten und Leserechte der Tabellen.';
 }
-$clients = $listQuery->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
 <html lang="de">
