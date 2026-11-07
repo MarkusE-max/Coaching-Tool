@@ -2,18 +2,19 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/bootstrap.php';
+require_once dirname(__DIR__) . '/app/schema.php';
 
 $databaseConnected = false;
+$schemaReady = false;
 try {
-    coachingDatabase()->query('SELECT 1')->fetchColumn();
+    $database = coachingDatabase();
     $databaseConnected = true;
+    $schemaReady = coachingSchemaStatus($database)['ready'];
+    if (!$schemaReady) {
+        http_response_code(503);
+    }
 } catch (Throwable $error) {
     http_response_code(503);
-}
-
-function escapeHtml(string $value): string
-{
-    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 ?>
 <!doctype html>
@@ -29,7 +30,7 @@ function escapeHtml(string $value): string
 <body>
     <main class="shell">
         <header class="topbar">
-            <a class="brand" href="/" aria-label="Coaching Tool Startseite">
+            <a class="brand" href="./" aria-label="Coaching Tool Startseite">
                 <span class="brand-mark" aria-hidden="true">C</span>
                 <span>Coaching<span class="brand-light">Tool</span></span>
             </a>
@@ -45,11 +46,17 @@ function escapeHtml(string $value): string
             </p>
 
             <section class="status-card" aria-labelledby="db-title">
-                <span class="status-dot <?= $databaseConnected ? 'is-connected' : 'is-disconnected' ?>" id="status-dot"></span>
+                <span class="status-dot <?= $schemaReady ? 'is-connected' : 'is-disconnected' ?>" id="status-dot"></span>
                 <div>
                     <strong id="db-title">MariaDB</strong>
                     <small id="db-status" role="status" aria-live="polite">
-                        <?= $databaseConnected ? 'Verbunden' : 'Noch nicht verbunden' ?>
+                        <?php if (!$databaseConnected): ?>
+                            Keine Verbindung
+                        <?php elseif ($schemaReady): ?>
+                            Verbunden · Coaching-Tabellen erkannt
+                        <?php else: ?>
+                            Verbunden · Tabellenstruktur unvollständig
+                        <?php endif; ?>
                     </small>
                 </div>
                 <button class="refresh-button" id="check-database" type="button">Verbindung prüfen</button>

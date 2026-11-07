@@ -12,10 +12,20 @@ button?.addEventListener("click", async () => {
             cache: "no-store",
         });
         const result = await response.json();
-        const connected = response.ok && result.database === "connected";
-        status.textContent = connected ? "Verbunden" : "Nicht verbunden";
-        dot.classList.toggle("is-connected", connected);
-        dot.classList.toggle("is-disconnected", !connected);
+        if (response.ok && result.schema === "ready") {
+            status.textContent = "Verbunden · Coaching-Tabellen erkannt";
+            dot.classList.add("is-connected");
+            dot.classList.remove("is-disconnected");
+        } else if (result.database === "connected") {
+            const missing = Array.isArray(result.missing_tables) ? result.missing_tables.join(", ") : "";
+            status.textContent = missing ? `Verbunden · Tabellen fehlen: ${missing}` : "Tabellenstruktur unvollständig";
+            dot.classList.add("is-disconnected");
+            dot.classList.remove("is-connected");
+        } else {
+            status.textContent = "Keine Datenbankverbindung";
+            dot.classList.add("is-disconnected");
+            dot.classList.remove("is-connected");
+        }
     } catch {
         status.textContent = "API nicht erreichbar";
         dot.classList.add("is-disconnected");
