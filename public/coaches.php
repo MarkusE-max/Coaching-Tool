@@ -26,27 +26,73 @@ if (!is_string($token) || strlen($token) !== 64) {
     $_SESSION['csrf_token'] = $token;
 }
 $error = '';
-$message = isset($_GET['created']) && $_GET['created'] === '1' ? 'Das aktive Coach-Konto wurde angelegt.' : '';
+$message = isset($_GET['created']) && $_GET['created'] === '1'
+    ? 'Das aktive Coach-Konto wurde angelegt.'
+    : (isset($_GET['saved']) && $_GET['saved'] === '1' ? 'Die Änderungen wurden gespeichert.' : '');
+$values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'username' => '', 'email' => '', 'aktiv' => 1];
+$editing = false;
+
+if (isset($_GET['edit'])) {
+    $editId = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
+    if ($editId === false || (int) $editId < 1) {
+        $error = 'Ungültige Coach-ID.';
+    } else {
+        $query = $database->prepare("SELECT id, vorname, nachname, benutzername, email, aktiv FROM benutzer WHERE id = :id AND rolle = 'coach' LIMIT 1");
+        $query->execute(['id' => (int) $editId]);
+        $record = $query->fetch(PDO::FETCH_ASSOC);
+        if ($record) {
+            $values = ['id' => (int) $record['id'], 'vorname' => $record['vorname'], 'nachname' => $record['nachname'], 'username' => $record['benutzername'], 'email' => $record['email'], 'aktiv' => (int) $record['aktiv']];
+            $editing = true;
+        } else {
+            $error = 'Dieses Coach-Konto wurde nicht gefunden.';
+        }
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postedToken = $_POST['csrf_token'] ?? '';
+    $rawId = $_POST['id'] ?? '0';
+    $id = filter_var($rawId, FILTER_VALIDATE_INT);
     $username = trim(is_string($_POST['username'] ?? null) ? $_POST['username'] : '');
     $email = trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : '');
     $firstName = trim(is_string($_POST['vorname'] ?? null) ? $_POST['vorname'] : '');
     $lastName = trim(is_string($_POST['nachname'] ?? null) ? $_POST['nachname'] : '');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
+    $values = ['id' => $id === false ? 0 : (int) $id, 'vorname' => $firstName, 'nachname' => $lastName, 'username' => $username, 'email' => $email, 'aktiv' => 1];
+    $editing = $id !== false && (int) $id > 0;
+    $passwordValid = strlen($password) >= 8 && strlen($password) <= 4096
+        && preg_match('/[^A-Za-z0-9]/', $password) === 1;
 
     if (!is_string($postedToken) || !hash_equals($token, $postedToken)) {
         $error = 'Die Anfrage ist abgelaufen. Bitte lade die Seite neu.';
-    } elseif ($username === '' || strlen($username) > 50
+    } elseif ($id === false || (int) $id < 0
+        || $username === '' || strlen($username) > 50
         || $email === '' || strlen($email) > 190 || !filter_var($email, FILTER_VALIDATE_EMAIL)
         || $firstName === '' || strlen($firstName) > 400
         || $lastName === '' || strlen($lastName) > 400
-        || strlen($password) < 8 || strlen($password) > 4096
-        || preg_match('/[^A-Za-z0-9]/', $password) !== 1) {
-        $error = 'Bitte prüfe deine Angaben. Das Passwort muss mindestens 8 Zeichen lang sein und ein Sonderzeichen enthalten.';
+        || (!$editing && !$passwordValid)
+        || ($editing && $password !== '' && !$passwordValid)) {
+        $error = 'Bitte prüfe deine Angaben. Ein neues Passwort braucht mindestens 8 Zeichen und ein Sonderzeichen.';
     } else {
         try {
+            if ($editing) {
+                $exists = $database->prepare("SELECT id FROM benutzer WHERE id = :id AND rolle = 'coach' LIMIT 1");
+                $exists->execute(['id' => (int) $id]);
+                if (!$exists->fetchColumn()) {
+                    throw new InvalidArgumentException('Dieses Coach-Konto wurde nicht gefunden.');
+                }
+                $set = ['benutzername = :username', 'email = :email', 'vorname = :first_name', 'nachname = :last_name'];
+                $params = ['username' => $username, 'email' => $email, 'first_name' => $firstName, 'last_name' => $lastName, 'id' => (int) $id];
+                if ($password !== '') {
+                    $set[] = 'passwort_hash = :password_hash';
+                    $params['password_hash'] = password_hash($password, PASSWORD_DEFAULT);
+                }
+                $update = $database->prepare('UPDATE benutzer SET ' . implode(', ', $set) . ' WHERE id = :id');
+                $update->execute($params);
+                header('Location: coaches.php?saved=1');
+                exit;
+            }
+
             $insert = $database->prepare(
                 "INSERT INTO benutzer (benutzername, email, passwort_hash, vorname, nachname, rolle, aktiv)
                  VALUES (:username, :email, :password_hash, :first_name, :last_name, 'coach', 1)"
@@ -60,13 +106,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             header('Location: coaches.php?created=1');
             exit;
+        } catch (InvalidArgumentException $exception) {
+            $error = $exception->getMessage();
         } catch (Throwable $exception) {
-            $error = 'Das Konto konnte nicht angelegt werden. Prüfe, ob Benutzername oder E-Mail bereits verwendet werden und ob der Datenbankbenutzer INSERT-Rechte auf benutzer hat.';
+            error_log('Coaching Tool coach save failed: ' . $exception->getMessage());
+            $error = 'Das Konto konnte nicht gespeichert werden. Prüfe, ob Benutzername oder E-Mail bereits verwendet werden und ob der Datenbankbenutzer INSERT-/UPDATE-Rechte auf benutzer hat.';
         }
     }
 }
 
-$list = $database->query("SELECT vorname, nachname, benutzername, email FROM benutzer WHERE rolle = 'coach' AND aktiv = 1 ORDER BY nachname, vorname");
+$list = $database->query("SELECT id, vorname, nachname, benutzername, email, aktiv FROM benutzer WHERE rolle = 'coach' ORDER BY aktiv DESC, nachname, vorname");
 $coaches = $list->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
