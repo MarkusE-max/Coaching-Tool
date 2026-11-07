@@ -117,7 +117,7 @@ try {
 
         $fields = ['klient_id = :client_id', 'beginn = :start', 'dauer_minuten = :duration', 'format = :format', 'status = :status'];
         $params = ['client_id' => $clientId, 'start' => $date->format('Y-m-d H:i:s'), 'duration' => (int) $duration, 'format' => $format, 'status' => $status];
-        if ($topicColumn !== null) { $fields[] = $topicColumn . ' = :topic'; $params['topic'] = $topic !== '' ? $topic : null; }
+        if ($topicColumn !== null) { $fields[] = $topicColumn . ' = :topic'; $params['topic'] = $topic; }
 
         if ($id > 0) {
             $params['id'] = $id;
