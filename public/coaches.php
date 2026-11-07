@@ -42,8 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         || $email === '' || strlen($email) > 190 || !filter_var($email, FILTER_VALIDATE_EMAIL)
         || $firstName === '' || strlen($firstName) > 400
         || $lastName === '' || strlen($lastName) > 400
-        || strlen($password) < 14 || strlen($password) > 4096) {
-        $error = 'Bitte prüfe deine Angaben. Das Passwort muss mindestens 14 Zeichen lang sein.';
+        || strlen($password) < 8 || strlen($password) > 4096
+        || preg_match('/[^A-Za-z0-9]/', $password) !== 1) {
+        $error = 'Bitte prüfe deine Angaben. Das Passwort muss mindestens 8 Zeichen lang sein und ein Sonderzeichen enthalten.';
     } else {
         try {
             $insert = $database->prepare(
@@ -88,7 +89,7 @@ $coaches = $list->fetchAll(PDO::FETCH_ASSOC);
 <label for="nachname">Nachname</label><input id="nachname" name="nachname" maxlength="100" required>
 <label for="username">Benutzername</label><input id="username" name="username" maxlength="50" autocomplete="username" required>
 <label for="email">E-Mail</label><input id="email" name="email" type="email" maxlength="190" required>
-<label for="password">Startpasswort (mindestens 14 Zeichen)</label><input id="password" name="password" type="password" minlength="14" autocomplete="new-password" required>
+<label for="password">Startpasswort (mindestens 8 Zeichen und ein Sonderzeichen)</label><input id="password" name="password" type="password" minlength="8" pattern="(?=.*[^A-Za-z0-9]).{8,}" title="Mindestens 8 Zeichen und mindestens ein Sonderzeichen." autocomplete="new-password" required>
 <button class="button" type="submit">Aktives Coach-Konto anlegen</button>
 </form></section>
 <section class="card"><h2>Aktive Coaches (<?= count($coaches) ?>)</h2><?php if ($coaches === []): ?><p>Noch kein aktives Coach-Konto vorhanden.</p><?php else: ?><ul><?php foreach ($coaches as $coach): ?><li><strong><?= coachH($coach['vorname'] . ' ' . $coach['nachname']) ?></strong><span class="muted"><?= coachH($coach['benutzername']) ?> · <?= coachH($coach['email']) ?></span></li><?php endforeach; ?></ul><?php endif; ?></section></div>
