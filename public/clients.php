@@ -157,8 +157,8 @@ try {
 <input type="hidden" name="csrf_token" value="<?= h($token) ?>"><input type="hidden" name="id" value="<?= h((int) $values['id']) ?>">
 <label for="vorname">Vorname</label><input id="vorname" name="vorname" maxlength="100" required value="<?= h($values['vorname']) ?>">
 <label for="nachname">Nachname</label><input id="nachname" name="nachname" maxlength="100" required value="<?= h($values['nachname']) ?>">
-<label for="email">E-Mail (optional)</label><input id="email" name="email" type="email" maxlength="190" value="<?= h($values['email'] ?? '') ?>">
-<label for="telefon">Telefon (optional)</label><input id="telefon" name="telefon" type="tel" maxlength="40" value="<?= h($values['telefon'] ?? '') ?>">
+<?php if ($emailColumn !== null): ?><label for="email">E-Mail (optional)</label><input id="email" name="email" type="email" maxlength="190" value="<?= h($values['email'] ?? '') ?>"><?php endif; ?>
+<?php if ($phoneColumn !== null): ?><label for="telefon">Telefon (optional)</label><input id="telefon" name="telefon" type="tel" maxlength="40" value="<?= h($values['telefon'] ?? '') ?>"><?php endif; ?>
 <?php if ($isAdmin): ?><label for="benutzer_id">Zuständiger Coach</label><select id="benutzer_id" name="benutzer_id" required><option value="">Bitte auswählen</option><?php foreach ($owners as $owner): ?><option value="<?= h($owner['id']) ?>" <?= (int) $values['benutzer_id'] === (int) $owner['id'] ? 'selected' : '' ?>><?= h($owner['vorname'] . ' ' . $owner['nachname']) ?></option><?php endforeach; ?></select><?php endif; ?>
 <button class="button" type="submit">Speichern</button><?php if ((int) $values['id'] > 0): ?><a class="cancel" href="clients.php">Abbrechen</a><?php endif; ?>
 </form></section>
