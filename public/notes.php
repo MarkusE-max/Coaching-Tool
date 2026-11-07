@@ -31,7 +31,7 @@ $clientQuery = $database->prepare('SELECT id, vorname, nachname FROM klienten WH
 $clientQuery->execute(['owner' => $coachId]);
 $clients = $clientQuery->fetchAll(PDO::FETCH_ASSOC);
 
-$appointmentQuery = $database->prepare("SELECT t.id, t.klient_id, t.beginn, t.thema FROM termine t INNER JOIN klienten k ON k.id = t.klient_id WHERE k.benutzer_id = :owner ORDER BY t.beginn DESC LIMIT 500");
+$appointmentQuery = $database->prepare("SELECT t.id, t.klient_id, t.beginn, k.vorname, k.nachname FROM termine t INNER JOIN klienten k ON k.id = t.klient_id WHERE k.benutzer_id = :owner ORDER BY t.beginn DESC LIMIT 500");
 $appointmentQuery->execute(['owner' => $coachId]);
 $appointments = $appointmentQuery->fetchAll(PDO::FETCH_ASSOC);
 
@@ -86,8 +86,8 @@ try {
     if (isset($_GET['edit'])) {
         $editId = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($editId === false || (int) $editId < 1) throw new InvalidArgumentException('Ungültige Notiz-ID.');
-        $query = $database->prepare('SELECT n.id, n.klient_id, n.termin_id, n.titel, n.inhalt FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id WHERE n.id = :id AND n.coach_benutzer_id = :owner AND k.benutzer_id = :owner');
-        $query->execute(['id' => (int) $editId, 'owner' => $coachId]);
+        $query = $database->prepare('SELECT n.id, n.klient_id, n.termin_id, n.titel, n.inhalt FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id WHERE n.id = :id AND n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner');
+        $query->execute(['id' => (int) $editId, 'note_owner' => $coachId, 'client_owner' => $coachId]);
         $record = $query->fetch(PDO::FETCH_ASSOC);
         if (!$record) throw new InvalidArgumentException('Die Notiz wurde nicht gefunden.');
         $values = $record;
@@ -101,9 +101,9 @@ try {
 
 $search = trim(is_string($_GET['q'] ?? null) ? $_GET['q'] : '');
 if (strlen($search) > 190) $search = substr($search, 0, 190);
-$list = $database->prepare('SELECT n.id, n.termin_id, n.klient_id, n.titel, n.inhalt, n.erstellt_am, k.vorname, k.nachname, t.beginn FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id LEFT JOIN termine t ON t.id = n.termin_id WHERE n.coach_benutzer_id = :owner AND k.benutzer_id = :owner AND (:search = \'%%\' OR n.titel LIKE :title_search OR n.inhalt LIKE :body_search) ORDER BY n.erstellt_am DESC LIMIT 200');
+$list = $database->prepare('SELECT n.id, n.termin_id, n.klient_id, n.titel, n.inhalt, n.erstellt_am, k.vorname, k.nachname, t.beginn FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id LEFT JOIN termine t ON t.id = n.termin_id WHERE n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner AND (:search = \'%%\' OR n.titel LIKE :title_search OR n.inhalt LIKE :body_search) ORDER BY n.erstellt_am DESC LIMIT 200');
 $needle = '%' . $search . '%';
-$list->execute(['owner' => $coachId, 'search' => $search === '' ? '%%' : $search, 'title_search' => $needle, 'body_search' => $needle]);
+$list->execute(['note_owner' => $coachId, 'client_owner' => $coachId, 'search' => $search === '' ? '%%' : $search, 'title_search' => $needle, 'body_search' => $needle]);
 $notes = $list->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
@@ -117,7 +117,7 @@ $notes = $list->fetchAll(PDO::FETCH_ASSOC);
 <div class="layout"><section class="card"><h2><?= (int) $values['id'] > 0 ? 'Notiz bearbeiten' : 'Notiz erfassen' ?></h2>
 <form class="form" method="post"><input type="hidden" name="csrf_token" value="<?= noteH($token) ?>"><input type="hidden" name="id" value="<?= noteH((int) $values['id']) ?>">
 <label for="klient_id">Klient</label><select id="klient_id" name="klient_id" required><option value="">Bitte auswählen</option><?php foreach ($clients as $client): ?><option value="<?= noteH($client['id']) ?>" <?= (int) $values['klient_id'] === (int) $client['id'] ? 'selected' : '' ?>><?= noteH($client['vorname'] . ' ' . $client['nachname']) ?></option><?php endforeach; ?></select>
-<label for="termin_id">Termin (optional)</label><select id="termin_id" name="termin_id"><option value="">Keinem Termin zuordnen</option><?php foreach ($appointments as $appointment): ?><option value="<?= noteH($appointment['id']) ?>" <?= (int) ($values['termin_id'] ?? 0) === (int) $appointment['id'] ? 'selected' : '' ?>><?= noteH(date('d.m.Y H:i', strtotime($appointment['beginn'])) . ' · ' . $appointment['vorname'] ?? '') ?></option><?php endforeach; ?></select>
+<label for="termin_id">Termin (optional)</label><select id="termin_id" name="termin_id"><option value="">Keinem Termin zuordnen</option><?php foreach ($appointments as $appointment): ?><option value="<?= noteH($appointment['id']) ?>" <?= (int) ($values['termin_id'] ?? 0) === (int) $appointment['id'] ? 'selected' : '' ?>><?= noteH(date('d.m.Y H:i', strtotime($appointment['beginn'])) . ' · ' . $appointment['vorname'] . ' ' . $appointment['nachname']) ?></option><?php endforeach; ?></select>
 <label for="titel">Titel</label><input id="titel" name="titel" maxlength="190" required value="<?= noteH($values['titel']) ?>">
 <label for="inhalt">Notiz</label><textarea id="inhalt" name="inhalt" required><?= noteH($values['inhalt']) ?></textarea>
 <button class="button" type="submit">Notiz speichern</button><?php if ((int) $values['id'] > 0): ?> <a href="notes.php">Abbrechen</a><?php endif; ?></form></section>
