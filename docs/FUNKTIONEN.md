@@ -14,7 +14,7 @@ Diese Datei hält die vom Projektinhaber benannten Funktionen und den aktuellen 
 
 ## Zusätzlicher Umfang
 
-- Termine, Sitzungsnotizen und Ziele sollen an einem Klienten hängen und später im Verlauf auffindbar sein.
+- Termine, Sitzungsnotizen und Ziele hängen an einem Klienten und sind im Verlauf auffindbar.
 - Bestehende Einträge sollen über eine Bearbeiten-Funktion änderbar sein.
 - Ziele erhalten Beschreibung, Erfolgskriterium, Zieltermin und Status.
 - Private Sitzungsnotizen bleiben ausschließlich für den zuständigen Coach sichtbar. Admin-Rechte gewähren keinen pauschalen Zugriff auf private Notizen.
