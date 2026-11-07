@@ -51,5 +51,5 @@ Open `http://127.0.0.1:8080/`. On the NAS, Web Station keeps the site available 
 - Database credentials stay on the NAS in `config.local.php`.
 - Never connect to MariaDB from browser JavaScript.
 - Use synthetic data until tenant separation, account recovery and the coachee portal have been reviewed.
-- Keep the NAS private on the LAN during development. Do not create router port forwarding.
+- Use HTTPS before entering real coaching data. Keep the NAS private on the LAN during development and do not create router port forwarding.
 - Login attempts store IP addresses in the existing `login_versuche` table; define a retention period before production use.

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+header('Cache-Control: no-store, private');
+
 $isHttps = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== '' && $_SERVER['HTTPS'] !== 'off';
 ini_set('session.use_strict_mode', '1');
 session_name('coaching_tool_session');
