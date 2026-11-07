@@ -11,7 +11,7 @@ The application uses the existing MariaDB database `coaching_tool` and expects:
 - `termine`: appointments associated with a client via `klient_id`
 - `login_versuche`: login attempt records
 
-The health check verifies connectivity and confirms that these four tables are visible to the application account. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The dashboard displays client names and upcoming appointment times, but not notes or coaching content. The private `/clients.php` page lets coaches manage their own clients and lets admins assign clients to active coach accounts. Admins can create those accounts in `/coaches.php`; each new account is created with the coach role, active status, and a hashed password.
+The health check verifies connectivity and confirms that these four tables are visible to the application account. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The dashboard displays client names and upcoming appointment times, but not notes or coaching content. The private `/clients.php` page lets coaches manage their own clients and lets admins assign clients to active coach accounts. Admins can create those accounts in `/coaches.php`; each new account is created with the coach role, active status, and a hashed password. New passwords must be at least 8 characters long and include a special character.
 
 An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. This current schema is user-owned rather than tenant/workspace based; the coachee portal and multi-tenant access model are not implemented yet.
 
@@ -42,7 +42,7 @@ This setup is available only while `benutzer` is empty. It requires HTTPS and a 
 
 1. In the private `config.local.php`, add `'initial_admin_setup_key' => '...'` at the top level of the returned array. Generate a unique random key with at least 32 characters; keep it only on the NAS.
 2. Open `https://<your-Web-Station-address>/setup-admin.php` from a device on the local network.
-3. Enter the setup key, admin name, username, email, and a password with at least 14 characters.
+3. Enter the setup key, admin name, username, email, and a password with at least 8 characters and at least one special character.
 4. After the new admin account is created, remove `initial_admin_setup_key` from `config.local.php`. The setup page is also disabled automatically once any user exists.
 
 The setup key and new password are submitted only over HTTPS. Never send them in chat or commit them to GitHub.
