@@ -13,27 +13,50 @@ body { margin: 0; min-width: 320px; min-height: 100vh; }
 .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 12px; background: #245c50; color: white; font-weight: 700; }
 .brand-light { font-weight: 430; color: #60716b; }
 .environment { color: #65766f; background: #e9efea; border-radius: 999px; padding: 8px 13px; font-size: 12px; }
-.welcome { width: min(100%, 720px); margin: auto; padding: 88px 0 104px; }
 .eyebrow { color: #417a6c; font-weight: 700; font-size: 12px; letter-spacing: .14em; }
-h1 { font-size: clamp(42px, 7vw, 72px); line-height: 1.04; letter-spacing: -.055em; font-weight: 560; margin: 20px 0; max-width: 700px; }
-.intro { font-size: 18px; line-height: 1.7; color: #5e7069; max-width: 590px; }
-.status-card { display: flex; align-items: center; gap: 13px; margin-top: 34px; padding: 16px 20px; background: white; border: 1px solid #e5ebe6; border-radius: 14px; box-shadow: 0 8px 30px #263b3210; }
-.status-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #bd8650; }
-.status-dot.is-connected { background: #4b9a70; }
-.status-dot.is-disconnected { background: #bd8650; }
-.status-card strong, .status-card small { display: block; }
-.status-card strong { font-size: 13px; }
-.status-card small { color: #6f7e78; margin-top: 3px; }
-.refresh-button { margin-left: auto; border: 1px solid #dfe7e1; border-radius: 9px; padding: 9px 12px; background: #fff; color: #29483f; font: inherit; font-size: 12px; cursor: pointer; }
-.refresh-button:hover { background: #f1f6f2; }
-.refresh-button:focus-visible { outline: 3px solid #9cc3b0; outline-offset: 2px; }
+h1 { font-size: clamp(38px, 6vw, 62px); line-height: 1.05; letter-spacing: -.05em; font-weight: 560; margin: 16px 0; }
+.intro { font-size: 17px; line-height: 1.65; color: #5e7069; max-width: 620px; }
+.login-panel { width: min(100%, 460px); margin: auto; padding: 72px 0 96px; }
+.login-form { display: grid; gap: 10px; margin-top: 28px; }
+.login-form label { margin-top: 8px; font-size: 13px; font-weight: 650; }
+.login-form input { width: 100%; border: 1px solid #dce5df; border-radius: 10px; padding: 13px 14px; background: #fff; color: #1f302d; font: inherit; }
+.login-form input:focus-visible { outline: 3px solid #a4c9b4; outline-offset: 2px; }
+.password-field { display: flex; align-items: center; gap: 8px; }
+.password-field input { flex: 1; min-width: 0; }
+.text-button { border: 0; background: transparent; color: #35695b; cursor: pointer; font: inherit; font-size: 12px; padding: 8px; }
+.primary-button, .secondary-button { border: 0; border-radius: 10px; padding: 13px 17px; font: inherit; font-weight: 650; cursor: pointer; }
+.primary-button { margin-top: 16px; color: white; background: #245c50; }
+.primary-button:hover { background: #19493f; }
+.secondary-button { background: white; border: 1px solid #dfe7e1; color: #29483f; }
+button:focus-visible { outline: 3px solid #9cc3b0; outline-offset: 2px; }
+button:disabled { opacity: .6; cursor: wait; }
+.form-error { color: #8c3434; background: #fff3f1; border: 1px solid #f0d0ca; padding: 12px 14px; border-radius: 10px; }
+.login-note, .privacy-note { color: #74817c; font-size: 12px; line-height: 1.5; margin-top: 18px; }
+.dashboard { width: min(100%, 1120px); margin: auto; padding: 58px 0 76px; }
+.dashboard-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.dashboard-heading form { margin-top: 24px; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 34px; }
+.data-card { background: white; border: 1px solid #e5ebe6; border-radius: 14px; padding: 20px; box-shadow: 0 8px 30px #263b3210; }
+.card-heading { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf1ee; padding-bottom: 14px; }
+.card-heading h2 { margin: 0; font-size: 17px; }
+.card-heading > span { color: #63746c; background: #eef3ef; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+.client-list, .appointment-list { list-style: none; padding: 0; margin: 0; }
+.client-list li { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f0f3f1; padding: 12px 0; }
+.client-list li:last-child, .appointment-list li:last-child { border-bottom: 0; }
+.person-mark { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%; background: #eaf1ec; color: #35695b; font-size: 13px; font-weight: 700; }
+.client-name { font-size: 14px; font-weight: 600; }
+.status-label { margin-left: auto; color: #65766f; font-size: 11px; }
+.appointment-list li { display: grid; gap: 4px; border-bottom: 1px solid #f0f3f1; padding: 13px 0; }
+.appointment-list time { color: #35695b; font-size: 12px; font-weight: 650; }
+.appointment-list strong { font-size: 14px; }
+.appointment-list small { color: #74817c; }
+.empty-state { color: #74817c; font-size: 14px; line-height: 1.6; padding: 10px 0; }
 footer { border-top: 1px solid #e2e9e4; padding: 22px 0; font-size: 12px; color: #74817c; }
-@media (max-width: 540px) {
+@media (max-width: 700px) {
     .shell { padding: 0 22px; }
     .topbar { height: 72px; }
-    .welcome { padding: 70px 0 78px; }
-    .intro { font-size: 16px; }
-    .environment { font-size: 11px; }
-    .status-card { flex-wrap: wrap; }
-    .refresh-button { margin-left: 22px; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .dashboard-heading { flex-direction: column; }
+    .dashboard-heading form { margin-top: 0; }
+    .login-panel { padding-top: 60px; }
 }
