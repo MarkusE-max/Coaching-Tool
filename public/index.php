@@ -245,7 +245,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                     <p class="form-error" role="alert"><?= h($dashboardError) ?></p>
                 <?php endif; ?>
 
-                <p class="client-tools-link"><a href="clients.php">Klienten anlegen und bearbeiten →</a><?php if ($currentUser['role'] === 'admin'): ?> · <a href="coaches.php">Coach-Konten verwalten →</a><?php endif; ?></p>
+                <p class="client-tools-link"><a href="clients.php">Klienten anlegen und bearbeiten →</a> · <a href="appointments.php">Terminverwaltung</a> · <a href="goals.php">Ziele</a><?php if ($currentUser['role'] === 'coach'): ?> · <a href="notes.php">Private Notizen</a><?php endif; ?><?php if ($currentUser['role'] === 'admin'): ?> · <a href="coaches.php">Coach-Konten verwalten →</a><?php endif; ?></p>
                 <div class="dashboard-grid">
                     <section class="data-card">
                         <div class="card-heading"><h2>Meine Klienten</h2><span><?= count($clients) ?></span></div>
