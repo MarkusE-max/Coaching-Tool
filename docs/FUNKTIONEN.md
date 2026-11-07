@@ -6,11 +6,11 @@ Diese Datei hält die vom Projektinhaber benannten Funktionen und den aktuellen 
 | --- | --- | --- | --- |
 | F1 | Nutzer und Rollen | Login, Rollen Coach / Klient / Admin, Passwort-Reset | Teilweise: Coach/Admin-Login und sichere Kontoanlage sind vorhanden. Klient-Login und Passwort-Reset fehlen. |
 | F2 | Klientenverwaltung | Klientenstammdaten, Status (aktiv/pausiert/abgeschlossen) | Teilweise: Coach/Admin können Stammdaten anlegen und bearbeiten. Statusauswahl und Klient-Login-Zuordnung fehlen. |
-| F3 | Termine | Termine pro Klient anlegen, bearbeiten, Verlauf | Als nächster Kernschritt: bestehende Tabelle `termine` verwenden; Rechte nach Klientenzuordnung prüfen. |
+| F3 | Termine | Termine pro Klient anlegen, bearbeiten, Verlauf | Umgesetzt: Anlage, Bearbeitung und Verlauf; Rechte werden anhand der Klientenzuordnung geprüft. |
 | F4 | Stream | Gemeinsamer Nachrichtenverlauf Coach ↔ Klient, Dateianhänge | Geplant: nur ausdrücklich geteilte Nachrichten; Dateispeicherung außerhalb des öffentlichen Webordners. |
-| F5 | Aufgaben | Übungen/Aktionen mit Fälligkeit und Status | Teilweise durch Ziele ergänzt; eigenständige Aufgaben mit Fälligkeit und Erledigungsstatus fehlen. |
+| F5 | Aufgaben | Übungen/Aktionen mit Fälligkeit und Status | Offen: Ziele sind vorhanden; eigenständige Aufgaben mit Fälligkeit und Erledigungsstatus fehlen. |
 | F6 | Erinnerungen | Automatische E-Mail-Erinnerungen zu Aufgaben | Geplant: benötigt SMTP-Konfiguration, zeitgesteuerten DSM-Aufruf und Versandprotokoll. |
-| F7 | Private Notizen | Nur für Coach sichtbar, durchsuchbar | Als nächster Kernschritt: private Notizen gehören zu einem Coach und Klienten, optional zu einem Termin; niemals im Klientenportal anzeigen. |
+| F7 | Private Notizen | Nur für Coach sichtbar, durchsuchbar | Umgesetzt: private Notizen sind coachgebunden, optional mit einem Termin verknüpft und durchsuchbar; Klient und Admin erhalten keinen Zugriff. |
 
 ## Zusätzlicher Umfang
 
