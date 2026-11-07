@@ -13,7 +13,7 @@ The application uses the existing MariaDB database `coaching_tool` and expects:
 
 The health check verifies connectivity and confirms that these four tables are visible to the application account. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The read-only dashboard displays client names and upcoming appointment times, but not notes or coaching content.
 
-At least one active account with a valid password hash must already exist in `benutzer`. No account is created automatically. This current schema is user-owned rather than tenant/workspace based; the coachee portal and multi-tenant access model are not implemented yet.
+An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. This current schema is user-owned rather than tenant/workspace based; the coachee portal and multi-tenant access model are not implemented yet.
 
 ## Run without SSH
 
@@ -30,10 +30,21 @@ Only `public/` should be the document root. Keep the private configuration and a
 ## MariaDB connection
 
 1. Confirm MariaDB 10 is running and check its current port in DSM.
-2. The application account needs SELECT/UPDATE on `benutzer`, SELECT on `klienten` and `termine`, and SELECT/INSERT on `login_versuche`.
+2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, SELECT on `klienten` and `termine`, and SELECT/INSERT on `login_versuche`.
 3. Copy `config.example.php` to `config.local.php` in the project root on the NAS and set the host, port, username and password.
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
-5. Test `/health.php`, then sign in with an active account from `benutzer`.
+5. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
+
+## First administrator setup
+
+This setup is available only while `benutzer` is empty. It requires HTTPS and a private/loopback client IP. It also requires INSERT permission on `benutzer`.
+
+1. In the private `config.local.php`, add `'initial_admin_setup_key' => '...'` at the top level of the returned array. Generate a unique random key with at least 32 characters; keep it only on the NAS.
+2. Open `https://<your-Web-Station-address>/setup-admin.php` from a device on the local network.
+3. Enter the setup key, admin name, username, email, and a password with at least 14 characters.
+4. After the new admin account is created, remove `initial_admin_setup_key` from `config.local.php`. The setup page is also disabled automatically once any user exists.
+
+The setup key and new password are submitted only over HTTPS. Never send them in chat or commit them to GitHub.
 
 ## Local development
 

@@ -33,12 +33,15 @@ function csrfToken(): string
 $database = null;
 $databaseReady = false;
 $databaseMessage = '';
+$noUsers = false;
 try {
     $database = coachingDatabase();
     $databaseReady = coachingSchemaStatus($database)['ready'];
     if (!$databaseReady) {
         $databaseMessage = 'Die erwartete Tabellenstruktur ist unvollständig.';
         http_response_code(503);
+    } else {
+        $noUsers = (int) $database->query('SELECT COUNT(*) FROM benutzer')->fetchColumn() === 0;
     }
 } catch (Throwable $error) {
     $databaseMessage = 'Die Datenbank ist momentan nicht erreichbar.';
@@ -219,6 +222,9 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                     <button class="primary-button" type="submit">Anmelden</button>
                 </form>
                 <p class="login-note">Nach fünf falschen Versuchen wird die Anmeldung für die IP-Adresse 15 Minuten pausiert.</p>
+                <?php if ($noUsers): ?>
+                    <p class="login-note"><a href="setup-admin.php">Ersten Administrator sicher einrichten</a></p>
+                <?php endif; ?>
             </section>
         <?php else: ?>
             <section class="dashboard">

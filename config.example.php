@@ -14,4 +14,8 @@ return [
         'username' => 'coaching_app',
         'password' => 'SET_A_PRIVATE_PASSWORD',
     ],
+
+    // Generate a random key of at least 32 characters for first-admin setup.
+    // Remove this entry after creating the first account.
+    'initial_admin_setup_key' => 'REPLACE_WITH_STRONG_PRIVATE_SETUP_KEY',
 ];

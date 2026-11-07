@@ -1,15 +1,24 @@
 <?php
 declare(strict_types=1);
 
-function coachingDatabase(): PDO
+function coachingConfig(): array
 {
     $configFile = dirname(__DIR__) . '/config.local.php';
     if (!is_file($configFile)) {
-        throw new RuntimeException('Private database configuration is missing.');
+        throw new RuntimeException('Private application configuration is missing.');
     }
 
     $config = require $configFile;
-    $database = $config['database'] ?? null;
+    if (!is_array($config)) {
+        throw new RuntimeException('Private application configuration is invalid.');
+    }
+
+    return $config;
+}
+
+function coachingDatabase(): PDO
+{
+    $database = coachingConfig()['database'] ?? null;
     if (!is_array($database)) {
         throw new RuntimeException('Database configuration is invalid.');
     }
