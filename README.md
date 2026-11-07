@@ -1,37 +1,43 @@
 # Coaching Tool
 
-Modular, multi-tenant coaching management application. The initial scaffold contains a responsive React/Vite frontend and a minimal PHP REST health endpoint. It has no database connection and contains no coaching records.
+A small multi-tenant coaching management application for Synology Web Station. The coach area is server-rendered with PHP, HTML and CSS, with JavaScript used for small interactions. A more interactive coachee portal can be added separately later.
 
-## Architecture
+## Run without SSH
 
-- Frontend: React + Vite
-- API: PHP 8.2, intended for Synology Web Station
-- Database: MariaDB, to be added through versioned migrations
-- Initial route: `GET /api/health.php` through the development proxy, or `GET /health.php` when the PHP public directory is served directly
+The website does not need a development server process. Web Station serves PHP pages directly and starts PHP for each request.
 
-Tenant boundaries and object permissions must be enforced by the API for every read and write. UI visibility is never an authorization control. Private coaching notes and portal permissions require explicit server-side checks before those modules are introduced.
+1. In DSM Package Center, install/enable Web Station, PHP 8.2 and MariaDB 10.
+2. Put the project files in a shared folder. In Web Station, create a PHP web service with document root set to this repository's `public/` folder and assign a PHP 8.2 profile.
+3. In Web Station > Script Language Settings > PHP, enable `pdo_mysql` in that profile.
+4. Configure the database using the steps below.
+5. Open the website through the Web Station portal. The health check is at `/health.php`.
+
+Only `public/` should be the document root. The private configuration and application code must stay outside it. Grant the Web Station `http` group read access to the website and app files.
+
+## MariaDB connection
+
+1. Confirm MariaDB 10 is running. Check its current port in the MariaDB 10 package settings; use that exact port.
+2. In phpMyAdmin, create a database called `coaching_tool` with `utf8mb4`, and a dedicated user restricted to that database. Do not use the MariaDB administrator login.
+3. Copy `config.example.php` to `config.local.php` in the project root on the NAS. Enter the database port and the dedicated username/password there.
+4. Keep `config.local.php` private and outside `public/`. It is ignored by Git and must never be copied to GitHub.
+5. Open `/health.php`. A connected database returns HTTP 200 with `"database":"connected"`. HTTP 503 means the configuration, MariaDB service/port, user grants, or PHP `pdo_mysql` extension needs checking. The endpoint does not reveal credentials or raw errors.
+
+The health check performs `SELECT 1`; no coaching tables or real data exist yet.
 
 ## Local development
 
-Requirements: Node.js 22 or compatible current LTS, npm, and PHP 8.2.
+Requires PHP 8.2 with PDO MySQL and MariaDB. Copy `config.example.php` to `config.local.php`, set local credentials, then run:
 
-1. Install frontend dependencies: `npm install`
-2. Start PHP from the repository root: `php -S 127.0.0.1:8080 -t api/public`
-3. Start Vite in another terminal: `npm run dev`
-4. Open the local URL printed by Vite. The frontend proxies `/api/*` to PHP.
-5. Create a production frontend build with `npm run build`.
+```sh
+php -S 127.0.0.1:8080 -t public
+```
 
-The PHP endpoint currently has no database dependency. Do not put secrets in Git. Keep future application configuration, uploads, logs, and backups outside the public web root.
+Open `http://127.0.0.1:8080/`. Stop the local server with Ctrl+C. This local command is only for development; Web Station keeps the NAS website available without SSH or a terminal.
 
-## Synology DS918+ test deployment
+## Data and security
 
-Use the DS918+ only as a private development/test target. Keep source control on GitHub and build the frontend on the Mac; deploy only the generated `dist/` files.
-
-1. In Web Station, create a dedicated test portal and serve the frontend build from its web root.
-2. Configure the PHP 8.2 profile and expose `api/public/health.php` through a deliberate API portal or reverse-proxy path. The Vite proxy is development-only; configure the production API base path in the web server before deployment.
-3. Keep application configuration, uploads, logs, and backups outside all public web roots.
-4. Use a dedicated least-privilege MariaDB account when database access is added. Never use the MariaDB administrator account.
-5. Keep the test environment LAN-only. Do not add router port forwarding and do not use real coaching data.
-6. Back up the NAS before changing its services and confirm current PHP extensions and available memory.
-
-No credentials, production settings, personal data, or real coaching records belong in this repository.
+- No real coaching data is included.
+- Database credentials stay on the NAS in `config.local.php`.
+- Database access runs in PHP on the server. Never connect to MariaDB from browser JavaScript.
+- Use synthetic data until authentication, tenant isolation and authorization are implemented.
+- Keep the NAS private on the LAN during development. Do not create router port forwarding.

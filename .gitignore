@@ -1,8 +1,8 @@
-node_modules/
-dist/
-.env
-.env.*
-!.env.example
-vendor/
+/node_modules/
+/dist/
+/.env
+/.env.*
+/config.local.php
+/api/config.local.php
 *.log
 .DS_Store
