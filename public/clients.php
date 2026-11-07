@@ -58,7 +58,7 @@ try {
         }
         $owner = (int) $owner;
         if ($isAdmin) {
-            $checkOwner = $database->prepare('SELECT id FROM benutzer WHERE id = :id AND aktiv = 1 LIMIT 1');
+            $checkOwner = $database->prepare('SELECT id FROM benutzer WHERE id = :id AND aktiv = 1 AND rolle = 'coach' LIMIT 1');
             $checkOwner->execute(['id' => $owner]);
             if (!$checkOwner->fetchColumn()) {
                 throw new InvalidArgumentException('Die ausgewählte Person ist nicht aktiv.');
@@ -122,6 +122,7 @@ $clients = $listQuery->fetchAll(PDO::FETCH_ASSOC);
 <body><main class="page">
 <header class="bar"><a class="brand" href="./">Coaching<span>Tool</span></a><a class="back" href="./">Zur Übersicht</a></header>
 <h1>Klienten verwalten</h1><p>Lege Klienten an und halte Kontaktangaben aktuell. Coaches sehen nur die ihnen zugeordneten Personen.</p>
+<?php if ($isAdmin): ?><p><a href="coaches.php">Coach-Konten verwalten →</a></p><?php endif; ?>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= h($message) ?></p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="error" role="alert"><?= h($error) ?></p><?php endif; ?>
 <div class="layout"><section class="card"><h2><?= (int) $values['id'] > 0 ? 'Klient bearbeiten' : 'Neuen Klienten anlegen' ?></h2>
