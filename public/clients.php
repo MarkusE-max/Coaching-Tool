@@ -20,8 +20,22 @@ if (!is_array($user) || !isset($user['id'], $user['role'], $user['name'])) {
     header('Location: ./');
     exit;
 }
-$database = coachingDatabase();
-$clientColumns = $database->query('SHOW COLUMNS FROM klienten')->fetchAll(PDO::FETCH_COLUMN);
+try {
+    $database = coachingDatabase();
+} catch (Throwable $exception) {
+    error_log('Coaching Tool clients database connection failed: ' . $exception->getMessage());
+    http_response_code(503);
+    ?><!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Klientenverwaltung nicht erreichbar</title><body style="font-family:system-ui;max-width:680px;margin:10vh auto;padding:24px;color:#1f302d"><h1>Klientenverwaltung nicht erreichbar</h1><p>Die Datenbankverbindung konnte nicht geöffnet werden. Bitte prüfe die Verbindung und versuche es erneut.</p><p><a href="./">Zur Übersicht</a></p></body></html><?php
+    exit;
+}
+$schemaWarning = '';
+try {
+    $clientColumns = $database->query('SHOW COLUMNS FROM klienten')->fetchAll(PDO::FETCH_COLUMN);
+} catch (Throwable $exception) {
+    error_log('Coaching Tool client schema inspection failed: ' . $exception->getMessage());
+    $clientColumns = [];
+    $schemaWarning = 'Die Kliententabelle konnte nicht geprüft werden. Bitte kontrolliere Tabellenstruktur und Leserechte.';
+}
 $emailColumn = null;
 foreach (['email', 'e_mail', 'mail', 'email_adresse'] as $candidate) {
     if (in_array($candidate, $clientColumns, true)) { $emailColumn = $candidate; break; }
@@ -39,7 +53,7 @@ if (!is_string($token) || strlen($token) !== 64) {
 }
 $isAdmin = $user['role'] === 'admin';
 $message = '';
-$error = '';
+$error = $schemaWarning;
 $values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'email' => '', 'telefon' => '', 'benutzer_id' => (int) $user['id']];
 
 try {
