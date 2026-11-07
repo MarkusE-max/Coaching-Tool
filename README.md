@@ -11,7 +11,7 @@ The application uses the existing MariaDB database `coaching_tool` and expects:
 - `termine`: appointments associated with a client via `klient_id`
 - `login_versuche`: login attempt records
 
-The health check verifies connectivity and confirms that these four tables are visible to the application account. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The read-only dashboard displays client names and upcoming appointment times, but not notes or coaching content.
+The health check verifies connectivity and confirms that these four tables are visible to the application account. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The dashboard displays client names and upcoming appointment times, but not notes or coaching content. The private `/clients.php` page lets coaches manage their own clients and lets admins assign clients to active coach accounts.
 
 An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. This current schema is user-owned rather than tenant/workspace based; the coachee portal and multi-tenant access model are not implemented yet.
 
@@ -30,7 +30,7 @@ Only `public/` should be the document root. Keep the private configuration and a
 ## MariaDB connection
 
 1. Confirm MariaDB 10 is running and check its current port in DSM.
-2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, SELECT on `klienten` and `termine`, and SELECT/INSERT on `login_versuche`.
+2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, SELECT/INSERT/UPDATE on `klienten` and SELECT on `termine`, and SELECT/INSERT on `login_versuche`.
 3. Copy `config.example.php` to `config.local.php` in the project root on the NAS and set the host, port, username and password.
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
 5. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
