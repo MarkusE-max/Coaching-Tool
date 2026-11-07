@@ -81,7 +81,7 @@ if (!$isHttps) {
 
         $config = coachingConfig();
         $candidate = $config['initial_admin_setup_key'] ?? '';
-        if (is_string($candidate) && strlen($candidate) >= 32 && !str_contains($candidate, 'REPLACE_')) {
+        if (is_string($candidate) && strlen($candidate) >= 32 && strlen($candidate) <= 256 && !str_contains($candidate, 'REPLACE_')) {
             $setupKey = $candidate;
         }
 
@@ -108,16 +108,26 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $setupReady && $database instanceof PDO) {
     $postedCsrf = $_POST['csrf_token'] ?? '';
     $postedSetupKey = $_POST['setup_key'] ?? '';
-    if (!is_string($postedCsrf) || !hash_equals(setupCsrfToken(), $postedCsrf)) {
+    $ipAddress = substr((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 45);
+    $rateLimit = $database->prepare(
+        'SELECT COUNT(*) FROM login_versuche
+         WHERE ip_adresse = :ip AND erfolgreich = 0
+           AND zeitpunkt >= (NOW() - INTERVAL 15 MINUTE)'
+    );
+    $rateLimit->execute(['ip' => $ipAddress]);
+    $tooManyAttempts = (int) $rateLimit->fetchColumn() >= 5;
+
+    if ($tooManyAttempts) {
+        $message = 'Zu viele Versuche. Bitte warte 15 Minuten und versuche es erneut.';
+    } elseif (!is_string($postedCsrf) || !hash_equals(setupCsrfToken(), $postedCsrf)) {
         $message = 'Die Anfrage ist abgelaufen. Bitte lade die Seite neu.';
     } elseif (!is_string($postedSetupKey) || !hash_equals($setupKey, $postedSetupKey)) {
         try {
-            $ip = substr((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 45);
             $log = $database->prepare(
                 'INSERT INTO login_versuche (benutzername, ip_adresse, erfolgreich)
                  VALUES (:name, :ip, 0)'
             );
-            $log->execute(['name' => 'first-admin-setup', 'ip' => $ip]);
+            $log->execute(['name' => 'first-admin-setup', 'ip' => $ipAddress]);
         } catch (Throwable $error) {
             // Keep setup-key failures generic to the browser.
         }
