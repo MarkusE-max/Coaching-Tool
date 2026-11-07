@@ -101,10 +101,16 @@ try {
 
 $search = trim(is_string($_GET['q'] ?? null) ? $_GET['q'] : '');
 if (strlen($search) > 190) $search = substr($search, 0, 190);
-$list = $database->prepare('SELECT n.id, n.termin_id, n.klient_id, n.titel, n.inhalt, n.erstellt_am, k.vorname, k.nachname, t.beginn FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id LEFT JOIN termine t ON t.id = n.termin_id WHERE n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner AND (:search = \'%%\' OR n.titel LIKE :title_search OR n.inhalt LIKE :body_search) ORDER BY n.erstellt_am DESC LIMIT 200');
-$needle = '%' . $search . '%';
-$list->execute(['note_owner' => $coachId, 'client_owner' => $coachId, 'search' => $search === '' ? '%%' : $search, 'title_search' => $needle, 'body_search' => $needle]);
-$notes = $list->fetchAll(PDO::FETCH_ASSOC);
+$notes = [];
+try {
+    $list = $database->prepare('SELECT n.id, n.termin_id, n.klient_id, n.titel, n.inhalt, n.erstellt_am, k.vorname, k.nachname, t.beginn FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id LEFT JOIN termine t ON t.id = n.termin_id WHERE n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner AND (:search = \'%%\' OR n.titel LIKE :title_search OR n.inhalt LIKE :body_search) ORDER BY n.erstellt_am DESC LIMIT 200');
+    $needle = '%' . $search . '%';
+    $list->execute(['note_owner' => $coachId, 'client_owner' => $coachId, 'search' => $search === '' ? '%%' : $search, 'title_search' => $needle, 'body_search' => $needle]);
+    $notes = $list->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $exception) {
+    error_log('Coaching Tool private note list failed: ' . $exception->getMessage());
+    $error = 'Private Notizen konnten nicht geladen werden. Bitte führe die SQL-Migration aus und prüfe die Tabellenrechte.';
+}
 ?>
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Private Sitzungsnotizen · Coaching Tool</title>
