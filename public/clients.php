@@ -83,7 +83,7 @@ try {
         }
         $owner = (int) $owner;
         if ($isAdmin) {
-            $checkOwner = $database->prepare('SELECT id FROM benutzer WHERE id = :id AND aktiv = 1 AND rolle = 'coach' LIMIT 1');
+            $checkOwner = $database->prepare("SELECT id FROM benutzer WHERE id = :id AND aktiv = 1 AND rolle = 'coach' LIMIT 1");
             $checkOwner->execute(['id' => $owner]);
             if (!$checkOwner->fetchColumn()) {
                 throw new InvalidArgumentException('Die ausgewählte Person ist nicht aktiv.');
