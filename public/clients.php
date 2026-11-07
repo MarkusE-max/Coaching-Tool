@@ -99,7 +99,7 @@ try {
 }
 
 $ownerQuery = $isAdmin
-    ? $database->query("SELECT id, vorname, nachname FROM benutzer WHERE aktiv = 1 ORDER BY nachname, vorname")
+    ? $database->query("SELECT id, vorname, nachname FROM benutzer WHERE aktiv = 1 AND rolle = 'coach' ORDER BY nachname, vorname")
     : null;
 $owners = $ownerQuery ? $ownerQuery->fetchAll(PDO::FETCH_ASSOC) : [];
 if ($isAdmin && $owners === []) $error = 'Es gibt kein aktives Coach-Konto, dem Klienten zugeordnet werden können.';
