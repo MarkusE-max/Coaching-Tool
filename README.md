@@ -11,9 +11,9 @@ The application uses the existing MariaDB database `coaching_tool` and expects:
 - `termine`: appointments associated with a client via `klient_id`
 - `login_versuche`: login attempt records
 
-The health check verifies connectivity and confirms that these four tables are visible to the application account. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The dashboard displays client names and upcoming appointment times, but not notes or coaching content. The private `/clients.php` page lets coaches manage their own clients and lets admins assign clients to active coach accounts. Admins can create and edit coach accounts in `/coaches.php`; name, username, email, and active status can be changed, and an optional password reset is available.; each new account is created with the coach role, active status, and a hashed password. New passwords must be at least 8 characters long and include a special character.
+The health check verifies connectivity and confirms that these four tables are visible to the application account. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The dashboard links to appointment management, goals, and coach-only private notes. Appointment history is visible only for the user's clients; private notes are never available to Klient or Admin accounts. The private `/clients.php` page lets coaches manage their own clients and lets admins assign clients to active coach accounts. Existing coach/client records can be edited. Admins can create and edit coach accounts in `/coaches.php`; name, username, email, and active status can be changed, and an optional password reset is available.; each new account is created with the coach role, active status, and a hashed password. New passwords must be at least 8 characters long and include a special character.
 
-An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. This current schema is user-owned rather than tenant/workspace based; the coachee portal and multi-tenant access model are not implemented yet.
+An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. The current schema is user-owned rather than tenant/workspace based; Klient login, stream, tasks, and automatic email reminders remain planned.
 
 ## Run without SSH
 
@@ -30,11 +30,12 @@ Only `public/` should be the document root. Keep the private configuration and a
 ## MariaDB connection
 
 1. Confirm MariaDB 10 is running and check its current port in DSM.
-2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, SELECT/INSERT/UPDATE on `klienten` and SELECT on `termine`, and SELECT/INSERT on `login_versuche`.
+2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, SELECT/INSERT/UPDATE on `klienten`, SELECT/INSERT/UPDATE on `termine`, SELECT/INSERT/UPDATE on `coaching_sitzungsnotizen` and `coaching_ziele`, and SELECT/INSERT on `login_versuche`.
 3. Copy `config.example.php` to `config.local.php` in the project root on the NAS and set the host, port, username and password.
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
 5. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
 6. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`.
+7. Back up MariaDB, import `database/migrations/001_sitzungsnotizen_ziele.sql` into `coaching_tool`, then copy the current PHP pages from `public/` to the NAS.
 
 ## First administrator setup
 
