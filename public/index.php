@@ -87,6 +87,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
                 );
                 $query->execute(['username' => $username]);
                 $user = $query->fetch();
+                if (!is_array($user)) {
+                    $portalQuery = $database->prepare(
+                        "SELECT p.id, p.klient_id, p.benutzername, p.passwort_hash, k.vorname, k.nachname,
+                                'client' AS rolle, p.aktiv
+                         FROM coaching_portal_zugaenge p
+                         INNER JOIN klienten k ON k.id = p.klient_id
+                         WHERE p.benutzername = :username LIMIT 1"
+                    );
+                    $portalQuery->execute(['username' => $username]);
+                    $user = $portalQuery->fetch();
+                }
 
                 $validPassword = is_array($user)
                     && is_string($user['passwort_hash'] ?? null)
@@ -105,8 +116,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
                 if (!$validPassword || (int) $user['aktiv'] !== 1) {
                     $errorMessage = 'Benutzername oder Passwort ist nicht korrekt.';
                 } else {
-                    $updateLogin = $database->prepare('UPDATE benutzer SET letzter_login = NOW() WHERE id = :id');
-                    $updateLogin->execute(['id' => (int) $user['id']]);
+                    if (($user['rolle'] ?? '') === 'client') {
+                        $updateLogin = $database->prepare('UPDATE coaching_portal_zugaenge SET letzter_login = NOW() WHERE id = :id');
+                        $updateLogin->execute(['id' => (int) $user['id']]);
+                    } else {
+                        $updateLogin = $database->prepare('UPDATE benutzer SET letzter_login = NOW() WHERE id = :id');
+                        $updateLogin->execute(['id' => (int) $user['id']]);
+                    }
 
                     session_regenerate_id(true);
                     $_SESSION['user'] = [
@@ -114,6 +130,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
                         'name' => trim($user['vorname'] . ' ' . $user['nachname']),
                         'role' => $user['rolle'],
                     ];
+                    if (($user['rolle'] ?? '') === 'client') {
+                        $_SESSION['user']['client_id'] = (int) $user['klient_id'];
+                    }
                     unset($_SESSION['csrf_token']);
                     header('Location: ./');
                     exit;
@@ -130,6 +149,12 @@ $currentUser = $_SESSION['user'] ?? null;
 if (!is_array($currentUser) || !isset($currentUser['id'], $currentUser['role'], $currentUser['name'])) {
     $currentUser = null;
 }
+
+if ($currentUser !== null && ($currentUser['role'] ?? '') === 'client') {
+    header('Location: portal.php');
+    exit;
+}
+
 
 $clients = [];
 $appointments = [];

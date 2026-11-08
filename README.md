@@ -1,6 +1,6 @@
 # Coaching Tool
 
-A small coaching management application for Synology Web Station. The coach area is server-rendered with PHP, HTML and CSS. A more interactive coachee portal can be added separately later.
+A small coaching management application for Synology Web Station. The coach area and Coachee portal are server-rendered with PHP, HTML and CSS. Coaches can customize typography and colors.
 
 ## Current database schema
 
@@ -11,9 +11,9 @@ The application uses the existing MariaDB database `coaching_tool` and expects:
 - `termine`: appointments associated with a client via `klient_id`
 - `login_versuche`: login attempt records
 
-The health check verifies the required application tables. Import database migrations 001 to 004 in order; migration 004 adds the client status used on the central client overview. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The dashboard links to appointment management, goals, and coach-only private notes. Appointment history is visible only for the user's clients; private notes are never available to Klient or Admin accounts. The private `/clients.php` page lets coaches manage their own clients and lets admins assign clients to active coach accounts. Existing coach/client records can be edited. Admins can create and edit coach accounts in `/coaches.php`; name, username, email, and active status can be changed, and admins can set a new password while editing. New passwords need at least 8 characters and a special character.
+The health check verifies the required application tables. Import migrations 001 to 005 in order; migration 004 adds client status and migration 005 adds Coachee logins, tasks, and per-user design preferences. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The dashboard links to appointments, goals, tasks, coach-only private notes, and the Coachee portal. Coaches can create or reset a Coachee login from that client's overview. Coachees can change their password, view their own appointments, goals, visible tasks, assigned documents, and update task status. Font, size, and colors can be customized in the Darstellung menu. Appointment history is visible only for the user's clients; private notes are never available to Klient or Admin accounts. The private `/clients.php` page lets coaches manage their own clients and lets admins assign clients to active coach accounts. Existing coach/client records can be edited. Admins can create and edit coach accounts in `/coaches.php`; name, username, email, and active status can be changed, and admins can set a new password while editing. New passwords need at least 8 characters and a special character.
 
-An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. The current schema is user-owned rather than tenant/workspace based; Klient login, stream, tasks, automatic email reminders, and the document workflow remain planned; see `docs/FUNKTIONEN.md` for F1–F8.
+An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. The current schema is user-owned rather than tenant/workspace based; shared messages and automatic email reminders remain planned; see `docs/FUNKTIONEN.md` for F1–F8.
 
 ## Run without SSH
 
@@ -30,14 +30,14 @@ Only `public/` should be the document root. Keep the private configuration and a
 ## MariaDB connection
 
 1. Confirm MariaDB 10 is running and check its current port in DSM.
-2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, `klienten`, `termine`, `coaching_sitzungsnotizen`, `coaching_ziele`, `coaching_dokumentvorlagen`, `coaching_klientendokumente` and `coaching_dokument_signaturanfragen`; SELECT/INSERT on `login_versuche` and `coaching_dokumentdateien`.
+2. The application account needs SELECT/INSERT/UPDATE on existing account/client/appointment tables and `coaching_sitzungsnotizen`, `coaching_ziele`, `coaching_dokumentvorlagen`, `coaching_klientendokumente`, `coaching_dokument_signaturanfragen`, `coaching_klientenstatus`, `coaching_portal_zugaenge`, `coaching_aufgaben`, and `coaching_design_einstellungen`; SELECT/INSERT on `login_versuche` and `coaching_dokumentdateien`.
 3. Copy `config.example.php` to `config.local.php` in the project root on the NAS and set the host, port, username and password.
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
 5. Create a full MariaDB backup before changing the schema.
-6. Import migrations in order: `001_sitzungsnotizen_ziele.sql`, `002_dokumente.sql`, `003_qr_signaturen.sql`, then `004_klientenstatus.sql`. They add coaching notes/goals, private documents, QR signature requests, and the client status used by the overview.
+6. Import migrations in order: `001_sitzungsnotizen_ziele.sql`, `002_dokumente.sql`, `003_qr_signaturen.sql`, `004_klientenstatus.sql`, then `005_portal_aufgaben_design.sql`. The last migration adds Coachee access, tasks, and design preferences.
 7. In the PHP 8.2 profile, allow uploads up to the app's 15 MB limit (for example `upload_max_filesize=16M` and `post_max_size=18M`). Ensure the PHP process can write to the private `storage/documents/` folder outside the webroot. To use a different absolute folder, set `'document_storage_path' => '/absolute/private/path'` in `config.local.php`. Keep that folder out of `public/` and out of shared web folders.
 8. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
-9. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated `public/documents.php`, `public/document-download.php`, `public/document-sign.php`, and `public/assets/vendor/` to the NAS. Also copy `app/document_storage.php`, `app/navigation.php`, and the updated `app/schema.php` into the private `app/` folder.
+9. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients in `/clients.php`. For updated application files, copy each changed file from GitHub into the matching folder under `/web/Coaching-Tool`; keep `config.local.php` and `storage/` private.
 
 ## First administrator setup
 
@@ -64,9 +64,9 @@ Open `http://127.0.0.1:8080/`. On the NAS, Web Station keeps the site available 
 
 - No real coaching data is included in this repository.
 - Database credentials stay on the NAS in `config.local.php`.
-- Coaching documents are stored under random filenames outside `public/`; downloads require a coach login and an ownership check. Templates and returned files are limited to PDF/JPG/PNG and 15 MB per upload.
+- Coaching documents are stored under random filenames outside `public/`; downloads require an authenticated coach or the exact Coachee account tied to that client. Templates and returned files are limited to PDF/JPG/PNG and 15 MB per upload.
 - QR signing is HTTPS-only. Each link expires after 24 hours, can be revoked, allows one completed signature, and requires a six-digit code given separately by the coach; five wrong codes lock the link. The QR-code generator is bundled locally, and a pinned pdf-lib 1.17.1 script from jsDelivr appends the drawn signature page; the PDF is processed in the browser and submitted only to this app. The signing browser needs internet access for that script. Check that this signature method suits each document.
 - Never connect to MariaDB from browser JavaScript.
-- Use synthetic data until tenant separation, account recovery and the coachee portal have been reviewed.
+- Use synthetic data until tenant separation and account recovery have been reviewed.
 - Use HTTPS before entering real coaching data. Keep the NAS private on the LAN during development and do not create router port forwarding.
 - Login attempts store IP addresses in the existing `login_versuche` table; define a retention period before production use.
