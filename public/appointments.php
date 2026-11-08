@@ -70,6 +70,17 @@ try {
         $clientQuery->execute(['owner' => (int) $user['id']]);
     }
     $clients = $clientQuery->fetchAll(PDO::FETCH_ASSOC);
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' && isset($_GET['klient_id'])) {
+        $prefillClient = filter_var($_GET['klient_id'], FILTER_VALIDATE_INT);
+        if ($prefillClient !== false && (int) $prefillClient > 0) {
+            $prefill = $database->prepare('SELECT id FROM klienten WHERE id = :id' . ($isAdmin ? '' : ' AND benutzer_id = :owner'));
+            $prefillParams = ['id' => (int) $prefillClient];
+            if (!$isAdmin) $prefillParams['owner'] = (int) $user['id'];
+            $prefill->execute($prefillParams);
+            if ($prefill->fetchColumn()) $values['klient_id'] = (int) $prefillClient;
+            else $error = 'Der ausgewählte Klient gehört nicht zu deinem Zugang.';
+        }
+    }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && $missing === []) {
         $postedToken = $_POST['csrf_token'] ?? '';
