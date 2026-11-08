@@ -183,15 +183,24 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
     <meta name="theme-color" content="#f5f7f5">
     <title>Coaching Tool</title>
     <link rel="stylesheet" href="assets/app.css">
+    <link rel="stylesheet" href="assets/layout.css">
     <script src="assets/app.js" defer></script>
+    <script src="assets/layout.js" defer></script>
 </head>
-<body>
+<body<?= $currentUser !== null ? ' class="has-app-sidebar"' : '' ?>>
+        <?php if ($currentUser !== null): ?>
+            <?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($currentUser, 'dashboard', $token); ?>
+        <?php endif; ?>
     <main class="shell">
         <header class="topbar">
+            <?php if ($currentUser === null): ?>
             <a class="brand" href="./" aria-label="Coaching Tool Startseite">
                 <span class="brand-mark" aria-hidden="true">C</span>
                 <span>Coaching<span class="brand-light">Tool</span></span>
             </a>
+            <?php else: ?>
+            <span class="eyebrow">COACHING-BEREICH</span>
+            <?php endif; ?>
             <span class="environment">Entwicklungsstand</span>
         </header>
 
@@ -245,7 +254,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                     <p class="form-error" role="alert"><?= h($dashboardError) ?></p>
                 <?php endif; ?>
 
-                <p class="client-tools-link"><a href="clients.php">Klienten anlegen und bearbeiten →</a> · <a href="appointments.php">Terminverwaltung</a> · <a href="goals.php">Ziele</a><?php if ($currentUser['role'] === 'coach'): ?> · <a href="notes.php">Private Notizen</a><?php endif; ?><?php if ($currentUser['role'] === 'admin'): ?> · <a href="coaches.php">Coach-Konten verwalten →</a><?php endif; ?></p>
+                
                 <div class="dashboard-grid">
                     <section class="data-card">
                         <div class="card-heading"><h2>Meine Klienten</h2><span><?= count($clients) ?></span></div>
