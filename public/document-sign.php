@@ -29,11 +29,78 @@ function signingJson(array $body, int $status = 200): never
 
 function signingSendPdf(string $path, string $filename, bool $inline): never
 {
-    $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($filename)) ?: 'Dokument.pdf';
+    $fileSize = filesize($path);
+    if (!is_int($fileSize) || $fileSize < 1) {
+        http_response_code(404);
+        exit('Dokument nicht gefunden.');
+    }
+
+    $start = 0;
+    $end = $fileSize - 1;
+    $status = 200;
+    $rangeHeader = trim((string) ($_SERVER['HTTP_RANGE'] ?? ''));
+    if ($rangeHeader !== '') {
+        if (preg_match('~^bytes=([0-9]*)-([0-9]*)$~D', $rangeHeader, $matches) !== 1
+            || ($matches[1] === '' && $matches[2] === '')) {
+            http_response_code(416);
+            header('Content-Range: bytes */' . $fileSize);
+            exit;
+        }
+
+        if ($matches[1] === '') {
+            $suffixLength = (int) $matches[2];
+            if ($suffixLength < 1) {
+                http_response_code(416);
+                header('Content-Range: bytes */' . $fileSize);
+                exit;
+            }
+            $start = max(0, $fileSize - $suffixLength);
+        } else {
+            $start = (int) $matches[1];
+            $end = $matches[2] === '' ? $fileSize - 1 : min((int) $matches[2], $fileSize - 1);
+        }
+
+        if ($start >= $fileSize || $start > $end) {
+            http_response_code(416);
+            header('Content-Range: bytes */' . $fileSize);
+            exit;
+        }
+        $status = 206;
+    }
+
+    $length = $end - $start + 1;
+    if ($inline) {
+        header('X-Frame-Options: SAMEORIGIN');
+        header("Content-Security-Policy: frame-ancestors 'self';");
+    } else {
+        header('X-Frame-Options: DENY');
+    }
+    header('Accept-Ranges: bytes');
     header('Content-Type: application/pdf');
-    header('Content-Length: ' . (string) filesize($path));
-    header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . $filename . '"');
-    readfile($path);
+    header('Content-Length: ' . (string) $length);
+    $safeFilename = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($filename)) ?: 'Dokument.pdf';
+    header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . '; filename="' . $safeFilename . '"');
+    if ($status === 206) {
+        http_response_code(206);
+        header('Content-Range: bytes ' . $start . '-' . $end . '/' . $fileSize);
+    }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+        $handle = fopen($path, 'rb');
+        if ($handle === false || fseek($handle, $start) !== 0) {
+            if (is_resource($handle)) fclose($handle);
+            http_response_code(500);
+            exit;
+        }
+        $remaining = $length;
+        while ($remaining > 0 && !feof($handle)) {
+            $chunk = fread($handle, min(8192, $remaining));
+            if ($chunk === false || $chunk === '') break;
+            echo $chunk;
+            $remaining -= strlen($chunk);
+        }
+        fclose($handle);
+    }
     exit;
 }
 
@@ -268,7 +335,7 @@ if ($request === null) {
 <h1>Dokument unterschreiben</h1>
 <p class="sign-intro"><strong><?= signingH($request['titel']) ?></strong><br>für <?= signingH(trim($request['vorname'] . ' ' . $request['nachname'])) ?></p>
 <p class="sign-muted">Prüfe das Dokument. Unten wird eine Seite mit deiner Unterschrift an die PDF angefügt.</p>
-<iframe class="sign-preview" src="document-sign.php?source=1" title="PDF-Dokument"></iframe>
+<iframe class="sign-preview" src="document-sign.php?source=1" title="PDF-Dokument"></iframe><p class="sign-muted">Falls die Vorschau auf deinem Handy leer bleibt: <a href="document-sign.php?source=1" target="_blank" rel="noopener">PDF in einem neuen Tab öffnen</a>.</p>
 <form id="sign-form" class="sign-form" method="post">
 <input type="hidden" name="csrf_token" value="<?= signingH($csrf) ?>">
 <label for="signer-name">Vollständiger Name</label><input id="signer-name" name="signer_name" type="text" maxlength="190" autocomplete="name" required value="<?= signingH(trim($request['vorname'] . ' ' . $request['nachname'])) ?>">
