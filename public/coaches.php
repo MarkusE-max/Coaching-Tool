@@ -126,9 +126,12 @@ $coaches = $list->fetchAll(PDO::FETCH_ASSOC);
 <title>Coach-Konten verwalten · Coaching Tool</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f302d;background:#f5f7f5}*{box-sizing:border-box}body{margin:0}.page{max-width:900px;margin:auto;padding:24px clamp(18px,5vw,64px) 70px}.bar{display:flex;justify-content:space-between;padding:14px 0 22px;border-bottom:1px solid #e2e9e4}.brand{color:inherit;text-decoration:none;font-weight:700}.brand span{font-weight:400;color:#60716b}a{color:#35695b}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.04em;margin:38px 0 8px}p{color:#65766f;line-height:1.55}.layout{display:grid;grid-template-columns:minmax(280px,390px) 1fr;gap:20px;margin-top:26px}.card{background:white;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.card h2{font-size:18px;margin:0 0 18px}.form{display:grid;gap:10px}.form label{font-size:13px;font-weight:650;margin-top:6px}.form input{width:100%;border:1px solid #dce5df;border-radius:9px;padding:12px;font:inherit}.form input:focus{outline:3px solid #a4c9b4}.button{border:0;border-radius:9px;padding:12px 16px;background:#245c50;color:white;font:inherit;font-weight:650;cursor:pointer;margin-top:12px}.notice,.error{padding:12px 14px;border-radius:9px}.notice{background:#edf5ef;color:#245c50}.error{background:#fff3f1;color:#8c3434}ul{list-style:none;padding:0;margin:0}li{padding:12px 0;border-bottom:1px solid #edf1ee}li:last-child{border-bottom:0}.muted{display:block;color:#74817c;font-size:12px;margin-top:4px}.coach-row{display:flex;justify-content:space-between;align-items:center;gap:12px}.form input[type=checkbox]{width:auto;margin-right:8px}.check-label{display:flex;align-items:center;gap:4px}.back{display:inline-block;margin-top:24px}@media(max-width:700px){.layout{grid-template-columns:1fr}}
-</style></head>
-<body><main class="page">
-<header class="bar"><a class="brand" href="./">Coaching<span>Tool</span></a><a href="clients.php">Zur Klientenverwaltung</a></header>
+</style><link rel="stylesheet" href="assets/layout.css"><script src="assets/layout.js" defer></script>
+</head>
+<body class="has-app-sidebar">
+<?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($currentUser, 'coaches', $token); ?>
+<main class="page">
+
 <h1>Coach-Konten verwalten</h1><p>Lege hier ein aktives Coach-Konto an. Es kann sich danach mit den Zugangsdaten selbst anmelden; das Passwort wird geschützt gespeichert.</p>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= coachH($message) ?></p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="error" role="alert"><?= coachH($error) ?></p><?php endif; ?>
