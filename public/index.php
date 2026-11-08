@@ -161,18 +161,22 @@ $appointments = [];
 $dashboardError = '';
 if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
     try {
-        if ($currentUser['role'] === 'admin') {
+        if (in_array($currentUser['role'], ['admin', 'verwalter'], true)) {
             $clientQuery = $database->query(
                 'SELECT id, vorname, nachname, status, startdatum
                  FROM klienten ORDER BY nachname, vorname LIMIT 100'
             );
-            $appointmentQuery = $database->query(
-                "SELECT t.beginn, t.dauer_minuten, t.format, k.vorname, k.nachname
-                 FROM termine t
-                 INNER JOIN klienten k ON k.id = t.klient_id
-                 WHERE t.status = 'geplant' AND t.beginn >= NOW()
-                 ORDER BY t.beginn LIMIT 10"
-            );
+            if ($currentUser['role'] === 'admin') {
+                $appointmentQuery = $database->query(
+                    "SELECT t.beginn, t.dauer_minuten, t.format, k.vorname, k.nachname
+                     FROM termine t
+                     INNER JOIN klienten k ON k.id = t.klient_id
+                     WHERE t.status = 'geplant' AND t.beginn >= NOW()
+                     ORDER BY t.beginn LIMIT 10"
+                );
+            } else {
+                $appointmentQuery = $database->query('SELECT beginn, dauer_minuten, format, \'\' AS vorname, \'\' AS nachname FROM termine WHERE 1 = 0');
+            }
         } else {
             $clientQuery = $database->prepare(
                 'SELECT id, vorname, nachname, status, startdatum
@@ -264,9 +268,9 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
             <section class="dashboard">
                 <div class="dashboard-heading">
                     <div>
-                        <p class="eyebrow">COACH-ÜBERSICHT</p>
+                        <p class="eyebrow"><?= $currentUser['role'] === 'verwalter' ? 'VERWALTERBEREICH' : 'COACH-ÜBERSICHT' ?></p>
                         <h1>Guten Tag, <?= h($currentUser['name']) ?>.</h1>
-                        <p class="intro">Hier siehst du Klienten und anstehende Termine aus deinem Zugang.</p>
+                        <p class="intro"><?= $currentUser['role'] === 'verwalter' ? 'Hier kannst du die Klientenzuordnung verwalten.' : 'Hier siehst du Klienten und anstehende Termine aus deinem Zugang.' ?></p>
                     </div>
                     <form method="post">
                         <input type="hidden" name="action" value="logout">
@@ -282,7 +286,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                 
                 <div class="dashboard-grid">
                     <section class="data-card">
-                        <div class="card-heading"><h2>Meine Klienten</h2><span><?= count($clients) ?></span></div>
+                        <div class="card-heading"><h2><?= $currentUser['role'] === 'verwalter' ? 'Klienten zur Zuordnung' : 'Meine Klienten' ?></h2><span><?= count($clients) ?></span></div>
                         <?php if ($clients === []): ?>
                             <p class="empty-state">Für diesen Zugang sind noch keine Klienten hinterlegt.</p>
                         <?php else: ?>
@@ -290,7 +294,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                                 <?php foreach ($clients as $client): ?>
                                     <li>
                                         <span class="person-mark" aria-hidden="true"><?= h(substr((string) $client['vorname'], 0, 1)) ?></span>
-                                        <span class="client-name"><?= h($client['vorname'] . ' ' . $client['nachname']) ?></span>
+                                        <span class="client-name"><?php if ($currentUser['role'] === 'verwalter'): ?><a href="clients.php?edit=<?= h($client['id']) ?>"><?= h($client['vorname'] . ' ' . $client['nachname']) ?></a><?php else: ?><?= h($client['vorname'] . ' ' . $client['nachname']) ?><?php endif; ?></span>
                                         <span class="status-label"><?= h($client['status']) ?></span>
                                     </li>
                                 <?php endforeach; ?>
@@ -298,7 +302,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                         <?php endif; ?>
                     </section>
 
-                    <section class="data-card">
+                    <?php if ($currentUser['role'] !== 'verwalter'): ?><section class="data-card">
                         <div class="card-heading"><h2>Anstehende Termine</h2><span><?= count($appointments) ?></span></div>
                         <?php if ($appointments === []): ?>
                             <p class="empty-state">Es sind keine kommenden Termine geplant.</p>
@@ -313,7 +317,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                                 <?php endforeach; ?>
                             </ul>
                         <?php endif; ?>
-                    </section>
+                    </section><?php endif; ?>
                 </div>
                 <p class="privacy-note">Notizen und Coaching-Inhalte werden in dieser Übersicht nicht angezeigt.</p>
             </section>
