@@ -13,6 +13,12 @@ function categoryH(string|int|null $value): string
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function categoryLength(string $value): int
+{
+    $length = preg_match_all('/./us', $value);
+    return $length === false ? 101 : $length;
+}
+
 $user=$_SESSION['user']??null;
 if(!is_array($user)||!in_array(($user['role']??''),['admin','verwalter'],true)){
     http_response_code(403);
@@ -38,7 +44,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $id=filter_var($_POST['id']??null,FILTER_VALIDATE_INT);
     try{
         if($action==='create'){
-            if($name===''||mb_strlen($name,'UTF-8')>100){
+            if($name===''||categoryLength($name)>100){
                 throw new RuntimeException('Bitte gib einen Kategorienamen mit höchstens 100 Zeichen ein.');
             }
             $insert=$db->prepare('INSERT INTO coaching_format_kategorien (name) VALUES (:name)');
