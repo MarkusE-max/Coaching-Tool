@@ -6,11 +6,11 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 | --- | --- | --- | --- |
 | F1 | Nutzer und Rollen | Login, Rollen Coach / Klient / Admin / Verwalter, Passwort-Reset | Teilweise umgesetzt: eigener Coachee-Login, Coach kann Passwort neu setzen; Coachee kann es im Portal ändern. Verwalterkonten werden durch Admin angelegt; Verwalter allein dürfen Klienten Coaches zuordnen. Admin-Reset für Coachees fehlt. |
 | F2 | Klientenverwaltung | Klientenstammdaten, Status (aktiv/pausiert/abgeschlossen) | Teilweise: Coaches sehen eigene Klienten; Admin kann Stammdaten ansehen, aber nicht zuordnen; Verwalter kann Stammdaten und Coach-Zuordnung verwalten. Coach-Wechsel werden protokolliert. |
-| F3 | Termine | Termine pro Klient anlegen, bearbeiten, Verlauf | Umgesetzt: Anlage, Bearbeitung und Verlauf; Rechte werden anhand der Klientenzuordnung geprüft. |
+| F3 | Termine | Termine pro Klient anlegen, bearbeiten, Verlauf | Umgesetzt: Anlage, Bearbeitung und Verlauf; Rechte werden anhand der Klientenzuordnung geprüft. Aus Dashboard und Klientenakte ist die jeweilige Klientenakte direkt erreichbar; Termine können dort mit vorausgewähltem Klienten neu angelegt werden. |
 | F4 | Stream | Gemeinsamer Nachrichtenverlauf Coach ↔ Klient, Dateianhänge | Im Code umgesetzt: Coach und Coachee können in der Klientenakte bzw. im Portal schreiben und PDF/JPG/PNG anhängen; Dateien liegen privat und werden rollen- und klientengebunden ausgeliefert. Synology-Funktionstest steht aus. |
 | F5 | Aufgaben | Übungen/Aktionen mit Fälligkeit und Status | Teilweise umgesetzt: Coach legt Aufgaben mit Fälligkeit an; Coachee aktualisiert den Status. Bearbeitung und Erinnerungen fehlen noch. |
 | F6 | Erinnerungen | Automatische E-Mail-Erinnerungen zu Aufgaben | Geplant: benötigt SMTP-Konfiguration, zeitgesteuerten DSM-Aufruf und Versandprotokoll. |
-| F7 | Private Notizen | Nur für Coach sichtbar, durchsuchbar | Umgesetzt: private Notizen sind coachgebunden, optional mit Termin und einem für den Coach sichtbaren Wissensformat verknüpft und durchsuchbar; Klient, Admin und Verwalter erhalten keinen Zugriff. |
+| F7 | Private Notizen | Nur für Coach sichtbar, durchsuchbar | Umgesetzt: private Notizen sind coachgebunden, optional mit Termin und einem für den Coach sichtbaren Wissensformat verknüpft, durchsuchbar und können Vorher-/Nachher-Werte von -10 bis +10 enthalten; Klient, Admin und Verwalter erhalten keinen Zugriff. |
 | F8 | Dokumente und Vereinbarungen | Vorlagen griffbereit halten, Klienten zuweisen, ausfüllen/unterschreiben und unterschriebene Fassung beim Klienten speichern | Im Code umgesetzt: geschützter Rücklauf per Scan oder QR-Unterschrift; benötigt Migration 003, HTTPS und Synology-Funktionstest. |
 
 ## Dokumentenablauf (F8)
@@ -37,4 +37,4 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 
 ## Datenbankänderung
 
-Migrationen 001 bis 003 ergänzen Notizen/Ziele, Dokumente und QR-Signaturen; Migration 004 ergänzt Status, Migration 005 Portalzugänge, Aufgaben und Darstellungseinstellungen. Migration 007 ergänzt Verwalterrolle, Notiz-Format-Verknüpfung und Auditprotokoll für Coach-Wechsel. Vor jeder Migration eine Datenbanksicherung erstellen und die Tabellenrechte des Anwendungsbenutzers prüfen.
+Migrationen 001 bis 003 ergänzen Notizen/Ziele, Dokumente und QR-Signaturen; Migration 004 ergänzt Status, Migration 005 Portalzugänge, Aufgaben und Darstellungseinstellungen. Migration 007 ergänzt Verwalterrolle, Notiz-Format-Verknüpfung und Auditprotokoll für Coach-Wechsel; Migration 008 ergänzt Vorher-/Nachher-Werte für Sitzungsnotizen. Vor jeder Migration eine Datenbanksicherung erstellen und die Tabellenrechte des Anwendungsbenutzers prüfen.
