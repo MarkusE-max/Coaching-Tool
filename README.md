@@ -35,7 +35,7 @@ Only `public/` should be the document root. Keep the private configuration and a
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
 5. Back up MariaDB and import `database/migrations/001_sitzungsnotizen_ziele.sql` into `coaching_tool`. It adds the private session-note and goal tables; it does not alter the existing client or appointment tables.
 6. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
-7. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated PHP pages from `public/` to the NAS.
+7. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated files from `public/` to the NAS, including `assets/layout.css` and `assets/layout.js`, and copy `app/navigation.php` into the private `app/` folder.
 
 ## First administrator setup
 
