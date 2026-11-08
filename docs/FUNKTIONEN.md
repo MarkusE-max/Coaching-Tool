@@ -11,7 +11,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 | F5 | Aufgaben | Übungen/Aktionen mit Fälligkeit und Status | Offen: Ziele sind vorhanden; eigenständige Aufgaben mit Fälligkeit und Erledigungsstatus fehlen. |
 | F6 | Erinnerungen | Automatische E-Mail-Erinnerungen zu Aufgaben | Geplant: benötigt SMTP-Konfiguration, zeitgesteuerten DSM-Aufruf und Versandprotokoll. |
 | F7 | Private Notizen | Nur für Coach sichtbar, durchsuchbar | Umgesetzt: private Notizen sind coachgebunden, optional mit einem Termin verknüpft und durchsuchbar; Klient und Admin erhalten keinen Zugriff. |
-| F8 | Dokumente und Vereinbarungen | Vorlagen griffbereit halten, Klienten zuweisen, ausfüllen/unterschreiben und unterschriebene Fassung beim Klienten speichern | Geplant: Bibliothek, Versionen und sichere Ablage vorgesehen. Unterschriftweg (digital im Portal oder unterschriebene Datei hochladen) ist noch festzulegen. |
+| F8 | Dokumente und Vereinbarungen | Vorlagen griffbereit halten, Klienten zuweisen, ausfüllen/unterschreiben und unterschriebene Fassung beim Klienten speichern | Geplant: zuerst unterschriebene PDF/Scan-Datei zurückgeben; später optional mobile Unterschrift per QR-Code. |
 
 ## Dokumentenablauf (F8)
 
@@ -20,7 +20,10 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 - Die unterschriebene oder ausgefüllte Endfassung wird privat gespeichert und mit dem Klienten sowie der verwendeten Vorlagenversion verknüpft.
 - Dateien liegen außerhalb des öffentlichen Webordners. Jede Ansicht, jeder Download und jede Änderung prüft die Rechte serverseitig.
 - Der Coachee darf nur die für ihn freigegebenen Dokumente sehen. Coach-interne Dokumente bleiben privat.
-- Offen ist, ob der erste Ablauf mit Upload einer unterschriebenen PDF/Scan-Datei startet oder ob der Coachee direkt im Portal ausfüllt und digital unterschreibt. Der Portalweg hängt außerdem vom Klient-Login aus F1 ab.
+- Phase 1: Coach verwaltet Vorlagen, weist eine bestimmte Version einem Klienten zu und lädt die unterschriebene PDF/Scan-Datei nach Rückgabe zum Klienten hoch.
+- Phase 2: optionaler QR-Code auf dem Dokument oder in der Einladung öffnet auf dem Handy eine Signaturseite für genau diese Dokumentenzuweisung.
+- QR-Zugriffe verwenden später einen zufälligen, zeitlich begrenzten und widerrufbaren Einmal-Link. Der QR-Code selbst enthält keine Klientendaten. Vor Umsetzung sind Identitätsprüfung, Ablaufzeit und Umgang mit weitergeleiteten Links festzulegen.
+- Beide Phasen speichern Originalvorlage, Version, Rücklauf, Zeitpunkte und Status; Dateien bleiben außerhalb des öffentlichen Webordners und sind nur nach serverseitiger Rechteprüfung erreichbar.
 
 ## Zusätzlicher Umfang
 
