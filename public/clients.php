@@ -132,9 +132,9 @@ try {
     } elseif (isset($_GET['edit'])) {
         $id = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($id === false || (int) $id < 1) throw new InvalidArgumentException('Ungültige Klienten-ID.');
-        $query = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ', benutzer_id FROM klienten WHERE id = :id' . ($isAdmin ? '' : ' AND benutzer_id = :owner'));
+        $query = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ', benutzer_id FROM klienten WHERE id = :id' . ($user['role'] === 'coach' ? ' AND benutzer_id = :owner' : ''));
         $params = ['id' => (int) $id];
-        if (!$isAdmin) $params['owner'] = (int) $user['id'];
+        if ($user['role'] === 'coach') $params['owner'] = (int) $user['id'];
         $query->execute($params);
         $record = $query->fetch(PDO::FETCH_ASSOC);
         if (!$record) throw new InvalidArgumentException('Dieser Klient wurde nicht gefunden oder gehört nicht zu deinem Zugang.');
