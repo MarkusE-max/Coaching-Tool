@@ -159,9 +159,12 @@ try {
 <title>Klienten verwalten · Coaching Tool</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f302d;background:#f5f7f5}*{box-sizing:border-box}body{margin:0}.page{max-width:1080px;margin:auto;padding:24px clamp(18px,5vw,64px) 70px}.bar{display:flex;justify-content:space-between;align-items:center;padding:14px 0 22px;border-bottom:1px solid #e2e9e4}.brand{color:inherit;text-decoration:none;font-weight:700}.brand span{font-weight:400;color:#60716b}.back{color:#35695b}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.04em;margin:38px 0 8px}p{color:#65766f;line-height:1.55}.layout{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:20px;margin-top:26px}.card{background:white;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.card h2{font-size:18px;margin:0 0 18px}.form{display:grid;gap:10px}.form label{font-size:13px;font-weight:650;margin-top:6px}.form input,.form select{width:100%;border:1px solid #dce5df;border-radius:9px;padding:12px;font:inherit;background:white}.form input:focus,.form select:focus{outline:3px solid #a4c9b4}.button{display:inline-block;border:0;border-radius:9px;padding:12px 16px;background:#245c50;color:white;text-decoration:none;font:inherit;font-weight:650;cursor:pointer;margin-top:12px}.cancel{margin-left:8px;color:#35695b}.notice{padding:12px 14px;background:#edf5ef;color:#245c50;border-radius:9px}.error{padding:12px 14px;background:#fff3f1;color:#8c3434;border-radius:9px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #edf1ee;padding:12px 8px;vertical-align:top}th{font-size:12px;color:#65766f}td a{color:#35695b}.muted{font-size:12px;color:#74817c}footer{margin-top:26px;font-size:12px;color:#74817c}@media(max-width:760px){.layout{grid-template-columns:1fr}th,td{padding:10px 6px}.desktop{display:none}}
-</style></head>
-<body><main class="page">
-<header class="bar"><a class="brand" href="./">Coaching<span>Tool</span></a><a class="back" href="./">Zur Übersicht</a></header>
+</style><link rel="stylesheet" href="assets/layout.css"><script src="assets/layout.js" defer></script>
+</head>
+<body class="has-app-sidebar">
+<?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($user, 'clients', $token); ?>
+<main class="page">
+
 <h1>Klienten verwalten</h1><p>Lege Klienten an und halte Kontaktangaben aktuell. Coaches sehen nur die ihnen zugeordneten Personen.</p>
 <?php if ($isAdmin): ?><p><a href="coaches.php">Coach-Konten verwalten →</a></p><?php endif; ?>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= h($message) ?></p><?php endif; ?>
