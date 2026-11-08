@@ -10,14 +10,16 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
 {
     $role = (string) ($user['role'] ?? '');
     $isAdmin = $role === 'admin';
-    $roleLabel = $isAdmin ? 'Administrator' : 'Coach';
+    $isManager = $role === 'verwalter';
+    $roleLabel = $isAdmin ? 'Administrator' : ($isManager ? 'Verwalter' : 'Coach');
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks'], true);
+    $managerOpen = $active === 'managers';
     $docsOpen = in_array($active, ['notes', 'documents'], true);
     $designOpen = $active === 'design';
     $knowledgeOpen = $active === 'formats';
-    $adminOpen = $active === 'coaches';
+    $adminOpen = in_array($active, ['coaches', 'managers'], true);
     require_once dirname(__DIR__) . '/app/theme.php';
     $themeDatabase = coachingDatabase();
     echo '<style>' . coachingThemeCss($themeDatabase, (int) $user['id']) . '</style>';
@@ -42,8 +44,10 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                     <summary><span class="sidebar-link-icon" aria-hidden="true">◇</span><span>Coaching</span></summary>
                     <div class="sidebar-submenu">
                         <a class="sidebar-link<?= $active === 'clients' ? ' is-active' : '' ?>" href="clients.php"<?= $active === 'clients' ? ' aria-current="page"' : '' ?>>Klienten</a>
+                        <?php if (!$isManager): ?>
                         <a class="sidebar-link<?= $active === 'appointments' ? ' is-active' : '' ?>" href="appointments.php"<?= $active === 'appointments' ? ' aria-current="page"' : '' ?>>Termine</a>
                         <a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a>
+                        <?php endif; ?>
                         <?php if ($role === 'coach'): ?><a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a><?php endif; ?>
                     </div>
                 </details>
@@ -71,6 +75,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                     <summary><span class="sidebar-link-icon" aria-hidden="true">⚙</span><span>Verwaltung</span></summary>
                     <div class="sidebar-submenu">
                         <a class="sidebar-link<?= $active === 'coaches' ? ' is-active' : '' ?>" href="coaches.php"<?= $active === 'coaches' ? ' aria-current="page"' : '' ?>>Coach-Konten</a>
+                        <a class="sidebar-link<?= $active === 'managers' ? ' is-active' : '' ?>" href="managers.php"<?= $active === 'managers' ? ' aria-current="page"' : '' ?>>Verwalterkonten</a>
                     </div>
                 </details>
                 <?php endif; ?>
