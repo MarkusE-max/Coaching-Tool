@@ -11,6 +11,8 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $role = (string) ($user['role'] ?? '');
     $isAdmin = $role === 'admin';
     $roleLabel = $isAdmin ? 'Administrator' : 'Coach';
+    $displayName = (string) ($user['name'] ?? 'Benutzer');
+    $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals'], true);
     $docsOpen = $active === 'notes';
     $adminOpen = $active === 'coaches';
@@ -58,7 +60,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
             </nav>
             <div class="sidebar-footer">
                 <div class="sidebar-user">
-                    <span class="sidebar-user-mark" aria-hidden="true"><?= coachingNavEscape(mb_substr((string) ($user['name'] ?? 'U'), 0, 1)) ?></span>
+                    <span class="sidebar-user-mark" aria-hidden="true"><?= coachingNavEscape($initial) ?></span>
                     <span class="sidebar-user-copy"><strong><?= coachingNavEscape($user['name'] ?? 'Benutzer') ?></strong><small><?= coachingNavEscape($roleLabel) ?></small></span>
                 </div>
                 <form method="post" action="./" class="sidebar-logout">
