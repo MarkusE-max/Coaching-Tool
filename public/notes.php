@@ -30,6 +30,14 @@ $values = ['id' => 0, 'klient_id' => 0, 'termin_id' => '', 'format_id' => '', 's
 $clientQuery = $database->prepare('SELECT id, vorname, nachname FROM klienten WHERE benutzer_id = :owner ORDER BY nachname, vorname');
 $clientQuery->execute(['owner' => $coachId]);
 $clients = $clientQuery->fetchAll(PDO::FETCH_ASSOC);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && isset($_GET['klient_id'])) {
+    $prefillClient = filter_var($_GET['klient_id'], FILTER_VALIDATE_INT);
+    if ($prefillClient !== false && (int) $prefillClient > 0) {
+        $validClientIds = array_map(static fn(array $client): int => (int) $client['id'], $clients);
+        if (in_array((int) $prefillClient, $validClientIds, true)) $values['klient_id'] = (int) $prefillClient;
+        else $error = 'Der ausgewählte Klient gehört nicht zu deinem Zugang.';
+    }
+}
 
 $appointmentQuery = $database->prepare("SELECT t.id, t.klient_id, t.beginn, k.vorname, k.nachname FROM termine t INNER JOIN klienten k ON k.id = t.klient_id WHERE k.benutzer_id = :owner ORDER BY t.beginn DESC LIMIT 500");
 $appointmentQuery->execute(['owner' => $coachId]);
