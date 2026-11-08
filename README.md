@@ -30,14 +30,14 @@ Only `public/` should be the document root. Keep the private configuration and a
 ## MariaDB connection
 
 1. Confirm MariaDB 10 is running and check its current port in DSM.
-2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, `klienten`, `termine`, `coaching_sitzungsnotizen`, `coaching_ziele`, `coaching_dokumentvorlagen` and `coaching_klientendokumente`; SELECT/INSERT on `login_versuche` and `coaching_dokumentdateien`.
+2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, `klienten`, `termine`, `coaching_sitzungsnotizen`, `coaching_ziele`, `coaching_dokumentvorlagen`, `coaching_klientendokumente` and `coaching_dokument_signaturanfragen`; SELECT/INSERT on `login_versuche` and `coaching_dokumentdateien`.
 3. Copy `config.example.php` to `config.local.php` in the project root on the NAS and set the host, port, username and password.
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
 5. Create a full MariaDB backup before changing the schema.
-6. Import `database/migrations/001_sitzungsnotizen_ziele.sql` and then `database/migrations/002_dokumente.sql` into `coaching_tool`. These additive migrations create the notes/goals and private document tables; they do not alter existing client or appointment tables.
+6. Import migrations in order: `001_sitzungsnotizen_ziele.sql`, `002_dokumente.sql`, then `003_qr_signaturen.sql`. They add coaching notes/goals, private documents and QR signature requests without changing existing client or appointment tables.
 7. In the PHP 8.2 profile, allow uploads up to the app's 15 MB limit (for example `upload_max_filesize=16M` and `post_max_size=18M`). Ensure the PHP process can write to the private `storage/documents/` folder outside the webroot. To use a different absolute folder, set `'document_storage_path' => '/absolute/private/path'` in `config.local.php`. Keep that folder out of `public/` and out of shared web folders.
 8. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
-9. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated files from `public/` to the NAS, including `documents.php`, `document-download.php`, `assets/layout.css` and `assets/layout.js`; copy `app/document_storage.php`, `app/navigation.php` into the private `app/` folder. Also copy the updated `app/schema.php`.
+9. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated `public/documents.php`, `public/document-download.php`, `public/document-sign.php`, and `public/assets/vendor/` to the NAS. Also copy `app/document_storage.php`, `app/navigation.php`, and the updated `app/schema.php` into the private `app/` folder.
 
 ## First administrator setup
 
@@ -65,6 +65,7 @@ Open `http://127.0.0.1:8080/`. On the NAS, Web Station keeps the site available 
 - No real coaching data is included in this repository.
 - Database credentials stay on the NAS in `config.local.php`.
 - Coaching documents are stored under random filenames outside `public/`; downloads require a coach login and an ownership check. Templates and returned files are limited to PDF/JPG/PNG and 15 MB per upload.
+- QR signing is HTTPS-only. Each link expires after 24 hours, can be revoked, allows one completed signature, and requires a six-digit code given separately by the coach; five wrong codes lock the link. The QR-code generator is bundled locally, and a pinned pdf-lib 1.17.1 script from jsDelivr appends the drawn signature page; the PDF is processed in the browser and submitted only to this app. The signing browser needs internet access for that script. Check that this signature method suits each document.
 - Never connect to MariaDB from browser JavaScript.
 - Use synthetic data until tenant separation, account recovery and the coachee portal have been reviewed.
 - Use HTTPS before entering real coaching data. Keep the NAS private on the LAN during development and do not create router port forwarding.
