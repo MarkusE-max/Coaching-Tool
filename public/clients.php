@@ -20,6 +20,10 @@ if (!is_array($user) || !isset($user['id'], $user['role'], $user['name'])) {
     header('Location: ./');
     exit;
 }
+if (!in_array($user['role'], ['coach', 'admin', 'verwalter'], true)) {
+    http_response_code(403);
+    exit('Kein Zugriff auf die Klientenverwaltung.');
+}
 try {
     $database = coachingDatabase();
 } catch (Throwable $exception) {
@@ -52,9 +56,11 @@ if (!is_string($token) || strlen($token) !== 64) {
     $_SESSION['csrf_token'] = $token;
 }
 $isAdmin = $user['role'] === 'admin';
+$isManager = $user['role'] === 'verwalter';
+$canSeeAllClients = $isAdmin || $isManager;
 $message = '';
 $error = $schemaWarning;
-$values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'email' => '', 'telefon' => '', 'benutzer_id' => (int) $user['id']];
+$values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'email' => '', 'telefon' => '', 'benutzer_id' => $isManager ? 0 : (int) $user['id']];
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -68,7 +74,8 @@ try {
         $last = trim(is_string($_POST['nachname'] ?? null) ? $_POST['nachname'] : '');
         $email = trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : '');
         $phone = trim(is_string($_POST['telefon'] ?? null) ? $_POST['telefon'] : '');
-        $owner = $isAdmin ? filter_var($_POST['benutzer_id'] ?? null, FILTER_VALIDATE_INT) : (int) $user['id'];
+        if ($isAdmin && $id === 0) throw new InvalidArgumentException('Administratoren können keine Klienten anlegen oder Coaches zuordnen. Bitte nutze dafür ein Coach- oder Verwalterkonto.');
+        $ownerInput = $isManager ? filter_var($_POST['benutzer_id'] ?? null, FILTER_VALIDATE_INT) : null;
         if ($first === '' || $last === '' || strlen($first) > 400 || strlen($last) > 400) {
             throw new InvalidArgumentException('Bitte Vor- und Nachnamen eintragen (jeweils höchstens 100 Zeichen).');
         }
@@ -78,33 +85,40 @@ try {
         if (strlen($phone) > 40) {
             throw new InvalidArgumentException('Die Telefonnummer darf höchstens 40 Zeichen lang sein.');
         }
-        if ($isAdmin && ($owner === false || (int) $owner < 1)) {
-            throw new InvalidArgumentException('Bitte eine zuständige Person auswählen.');
+        if ($isManager && ($ownerInput === false || (int) $ownerInput < 1)) {
+            throw new InvalidArgumentException('Bitte einen zuständigen Coach auswählen.');
         }
-        $owner = (int) $owner;
-        if ($isAdmin) {
+        if ($isManager) {
             $checkOwner = $database->prepare("SELECT id FROM benutzer WHERE id = :id AND aktiv = 1 AND rolle = 'coach' LIMIT 1");
-            $checkOwner->execute(['id' => $owner]);
-            if (!$checkOwner->fetchColumn()) {
-                throw new InvalidArgumentException('Die ausgewählte Person ist nicht aktiv.');
-            }
+            $checkOwner->execute(['id' => (int) $ownerInput]);
+            if (!$checkOwner->fetchColumn()) throw new InvalidArgumentException('Der ausgewählte Coach ist nicht aktiv.');
         }
         if ($id > 0) {
-            $check = $database->prepare('SELECT id FROM klienten WHERE id = :id' . ($isAdmin ? '' : ' AND benutzer_id = :owner'));
+            $check = $database->prepare('SELECT id, benutzer_id FROM klienten WHERE id = :id' . ($user['role'] === 'coach' ? ' AND benutzer_id = :owner' : ''));
             $params = ['id' => $id];
-            if (!$isAdmin) $params['owner'] = (int) $user['id'];
+            if ($user['role'] === 'coach') $params['owner'] = (int) $user['id'];
             $check->execute($params);
-            if (!$check->fetchColumn()) {
-                throw new InvalidArgumentException('Dieser Klient wurde nicht gefunden oder gehört nicht zu deinem Zugang.');
-            }
-            $set = ['vorname = :first', 'nachname = :last', 'benutzer_id = :owner'];
-            $updateParams = ['first' => $first, 'last' => $last, 'owner' => $owner, 'id' => $id];
+            $existingClient = $check->fetch(PDO::FETCH_ASSOC);
+            if (!$existingClient) throw new InvalidArgumentException('Dieser Klient wurde nicht gefunden oder gehört nicht zu deinem Zugang.');
+            $oldOwner = (int) $existingClient['benutzer_id'];
+            $owner = $isManager ? (int) $ownerInput : $oldOwner;
+            $set = ['vorname = :first', 'nachname = :last'];
+            $updateParams = ['first' => $first, 'last' => $last, 'id' => $id];
+            if ($isManager) { $set[] = 'benutzer_id = :owner'; $updateParams['owner'] = $owner; }
             if ($emailColumn !== null) { $set[] = $emailColumn . ' = :email'; $updateParams['email'] = $email ?: null; }
             if ($phoneColumn !== null) { $set[] = $phoneColumn . ' = :phone'; $updateParams['phone'] = $phone ?: null; }
+            if ($isManager) $database->beginTransaction();
             $update = $database->prepare('UPDATE klienten SET ' . implode(', ', $set) . ' WHERE id = :id');
             $update->execute($updateParams);
-            $message = 'Die Klientendaten wurden gespeichert.';
+            if ($isManager && $oldOwner !== $owner) {
+                $audit = $database->prepare('INSERT INTO coaching_klientenzuweisungen (klient_id, vorheriger_coach_id, neuer_coach_id, geaendert_von_benutzer_id) VALUES (:client, :old_coach, :new_coach, :manager)');
+                $audit->execute(['client' => $id, 'old_coach' => $oldOwner, 'new_coach' => $owner, 'manager' => (int) $user['id']]);
+            }
+            if ($isManager) $database->commit();
+            $message = $isManager && $oldOwner !== $owner ? 'Klientendaten und Coach-Zuordnung wurden gespeichert.' : 'Die Klientendaten wurden gespeichert.';
         } else {
+            if (!$isManager && $user['role'] !== 'coach') throw new InvalidArgumentException('Nur Coaches und Verwalter können Klienten anlegen.');
+            $owner = $isManager ? (int) $ownerInput : (int) $user['id'];
             $insertColumns = ['benutzer_id', 'vorname', 'nachname'];
             $insertValues = [':owner', ':first', ':last'];
             $insertParams = ['owner' => $owner, 'first' => $first, 'last' => $last];
@@ -129,16 +143,17 @@ try {
 } catch (InvalidArgumentException $exception) {
     $error = $exception->getMessage();
 } catch (Throwable $exception) {
+    if ($database->inTransaction()) $database->rollBack();
     $error = 'Die Änderung konnte nicht gespeichert werden. Bitte prüfe die Datenbankrechte und die Verbindung.';
 }
 
 try {
-    $ownerQuery = $isAdmin
+    $ownerQuery = $isManager
         ? $database->query("SELECT id, vorname, nachname FROM benutzer WHERE aktiv = 1 AND rolle = 'coach' ORDER BY nachname, vorname")
         : null;
     $owners = $ownerQuery ? $ownerQuery->fetchAll(PDO::FETCH_ASSOC) : [];
-    if ($isAdmin && $owners === []) $error = 'Es gibt kein aktives Coach-Konto. Lege zuerst eines über Coach-Konten verwalten an.';
-    if ($isAdmin) {
+    if ($isManager && $owners === []) $error = 'Es gibt kein aktives Coach-Konto. Lege zuerst eines über Coach-Konten verwalten an.';
+    if ($canSeeAllClients) {
         $listQuery = $database->query('SELECT k.id, k.vorname, k.nachname, ' . $emailSelect . ', ' . $phoneSelect . ', k.benutzer_id, b.vorname AS coach_vorname, b.nachname AS coach_nachname FROM klienten k LEFT JOIN benutzer b ON b.id = k.benutzer_id ORDER BY k.nachname, k.vorname LIMIT 200');
     } else {
         $listQuery = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ' FROM klienten WHERE benutzer_id = :owner ORDER BY nachname, vorname LIMIT 200');
@@ -166,7 +181,7 @@ try {
 <main class="page">
 
 <h1>Klienten verwalten</h1><p>Lege Klienten an und halte Kontaktangaben aktuell. Coaches sehen nur die ihnen zugeordneten Personen.</p>
-<?php if ($isAdmin): ?><p><a href="coaches.php">Coach-Konten verwalten →</a></p><?php endif; ?>
+<?php if ($isAdmin): ?><p><a href="coaches.php">Coach-Konten verwalten →</a> · <a href="managers.php">Verwalterkonten →</a></p><?php endif; ?>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= h($message) ?></p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="error" role="alert"><?= h($error) ?></p><?php endif; ?>
 <div class="layout"><section class="card"><h2><?= (int) $values['id'] > 0 ? 'Klient bearbeiten' : 'Neuen Klienten anlegen' ?></h2>
@@ -176,8 +191,8 @@ try {
 <label for="nachname">Nachname</label><input id="nachname" name="nachname" maxlength="100" required value="<?= h($values['nachname']) ?>">
 <?php if ($emailColumn !== null): ?><label for="email">E-Mail (optional)</label><input id="email" name="email" type="email" maxlength="190" value="<?= h($values['email'] ?? '') ?>"><?php endif; ?>
 <?php if ($phoneColumn !== null): ?><label for="telefon">Telefon (optional)</label><input id="telefon" name="telefon" type="tel" maxlength="40" value="<?= h($values['telefon'] ?? '') ?>"><?php endif; ?>
-<?php if ($isAdmin): ?><label for="benutzer_id">Zuständiger Coach</label><select id="benutzer_id" name="benutzer_id" required><option value="">Bitte auswählen</option><?php foreach ($owners as $owner): ?><option value="<?= h($owner['id']) ?>" <?= (int) $values['benutzer_id'] === (int) $owner['id'] ? 'selected' : '' ?>><?= h($owner['vorname'] . ' ' . $owner['nachname']) ?></option><?php endforeach; ?></select><?php endif; ?>
+<?php if ($isManager): ?><label for="benutzer_id">Zuständiger Coach</label><select id="benutzer_id" name="benutzer_id" required><option value="">Bitte auswählen</option><?php foreach ($owners as $owner): ?><option value="<?= h($owner['id']) ?>" <?= (int) $values['benutzer_id'] === (int) $owner['id'] ? 'selected' : '' ?>><?= h($owner['vorname'] . ' ' . $owner['nachname']) ?></option><?php endforeach; ?></select><?php elseif ($isAdmin && (int) $values['id'] > 0): ?><p class="muted">Zuständiger Coach: <?= h($values['benutzer_id']) ?> · Coach-Wechsel nur durch Verwalter</p><?php endif; ?>
 <button class="button" type="submit">Speichern</button><?php if ((int) $values['id'] > 0): ?><a class="cancel" href="clients.php">Abbrechen</a><?php endif; ?>
 </form></section>
-<section class="card"><h2>Klienten (<?= count($clients) ?>)</h2><?php if (!$clients): ?><p>Noch keine Klienten eingetragen.</p><?php else: ?><div class="table-wrap"><table><thead><tr><th>Name</th><th>Kontakt</th><?php if ($isAdmin): ?><th>Coach</th><?php endif; ?><th></th></tr></thead><tbody><?php foreach ($clients as $client): ?><tr><td><?= h($client['vorname'] . ' ' . $client['nachname']) ?></td><td><?= h($client['email'] ?? '') ?><?php if (!empty($client['telefon'])): ?><br><span class="muted"><?= h($client['telefon']) ?></span><?php endif; ?></td><?php if ($isAdmin): ?><td><?= h(trim(($client['coach_vorname'] ?? '') . ' ' . ($client['coach_nachname'] ?? ''))) ?></td><?php endif; ?><td><a href="client-overview.php?id=<?= h($client['id']) ?>">Übersicht</a> · <a href="clients.php?edit=<?= h($client['id']) ?>">Bearbeiten</a></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></section></div>
+<section class="card"><h2>Klienten (<?= count($clients) ?>)</h2><?php if (!$clients): ?><p>Noch keine Klienten eingetragen.</p><?php else: ?><div class="table-wrap"><table><thead><tr><th>Name</th><th>Kontakt</th><?php if ($canSeeAllClients): ?><th>Coach</th><?php endif; ?><th></th></tr></thead><tbody><?php foreach ($clients as $client): ?><tr><td><?= h($client['vorname'] . ' ' . $client['nachname']) ?></td><td><?= h($client['email'] ?? '') ?><?php if (!empty($client['telefon'])): ?><br><span class="muted"><?= h($client['telefon']) ?></span><?php endif; ?></td><?php if ($canSeeAllClients): ?><td><?= h(trim(($client['coach_vorname'] ?? '') . ' ' . ($client['coach_nachname'] ?? ''))) ?></td><?php endif; ?><td><?php if (!$isManager): ?><a href="client-overview.php?id=<?= h($client['id']) ?>">Übersicht</a> · <?php endif; ?><a href="clients.php?edit=<?= h($client['id']) ?>">Bearbeiten</a></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></section></div>
 <footer>Privater Bereich · Klientendaten sind nur für berechtigte Zugänge sichtbar</footer></main></body></html>
