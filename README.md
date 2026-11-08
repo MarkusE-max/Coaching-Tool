@@ -13,7 +13,7 @@ The application uses the existing MariaDB database `coaching_tool` and expects:
 
 The health check verifies connectivity and confirms that the four existing tables plus the notes and goals tables are visible to the application account. The login uses `password_verify`, CSRF tokens, HTTP-only sessions, and a temporary IP rate limit. Coaches see only clients assigned to their user ID; admins see all clients. The dashboard links to appointment management, goals, and coach-only private notes. Appointment history is visible only for the user's clients; private notes are never available to Klient or Admin accounts. The private `/clients.php` page lets coaches manage their own clients and lets admins assign clients to active coach accounts. Existing coach/client records can be edited. Admins can create and edit coach accounts in `/coaches.php`; name, username, email, and active status can be changed, and admins can set a new password while editing. New passwords need at least 8 characters and a special character.
 
-An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. The current schema is user-owned rather than tenant/workspace based; Klient login, stream, tasks, and automatic email reminders remain planned.
+An active account is needed in `benutzer`. If the table is empty, use the one-time setup described below. The current schema is user-owned rather than tenant/workspace based; Klient login, stream, tasks, automatic email reminders, and the document workflow remain planned; see `docs/FUNKTIONEN.md` for F1–F8.
 
 ## Run without SSH
 
