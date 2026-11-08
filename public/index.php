@@ -168,7 +168,7 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
             );
             if ($currentUser['role'] === 'admin') {
                 $appointmentQuery = $database->query(
-                    "SELECT t.beginn, t.dauer_minuten, t.format, k.vorname, k.nachname
+                    "SELECT t.beginn, t.dauer_minuten, t.format, k.id AS klient_id, k.vorname, k.nachname
                      FROM termine t
                      INNER JOIN klienten k ON k.id = t.klient_id
                      WHERE t.status = 'geplant' AND t.beginn >= NOW()
@@ -185,7 +185,7 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
             );
             $clientQuery->execute(['user_id' => (int) $currentUser['id']]);
             $appointmentQuery = $database->prepare(
-                "SELECT t.beginn, t.dauer_minuten, t.format, k.vorname, k.nachname
+                "SELECT t.beginn, t.dauer_minuten, t.format, k.id AS klient_id, k.vorname, k.nachname
                  FROM termine t
                  INNER JOIN klienten k ON k.id = t.klient_id
                  WHERE k.benutzer_id = :user_id
@@ -294,7 +294,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                                 <?php foreach ($clients as $client): ?>
                                     <li>
                                         <span class="person-mark" aria-hidden="true"><?= h(substr((string) $client['vorname'], 0, 1)) ?></span>
-                                        <span class="client-name"><?php if ($currentUser['role'] === 'verwalter'): ?><a href="clients.php?edit=<?= h($client['id']) ?>"><?= h($client['vorname'] . ' ' . $client['nachname']) ?></a><?php else: ?><?= h($client['vorname'] . ' ' . $client['nachname']) ?><?php endif; ?></span>
+                                        <span class="client-name"><a href="<?= $currentUser['role'] === 'verwalter' ? 'clients.php?edit=' . h($client['id']) : 'client-overview.php?id=' . h($client['id']) ?>"><?= h($client['vorname'] . ' ' . $client['nachname']) ?></a></span>
                                         <span class="status-label"><?= h($client['status']) ?></span>
                                     </li>
                                 <?php endforeach; ?>
@@ -311,7 +311,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                                 <?php foreach ($appointments as $appointment): ?>
                                     <li>
                                         <time><?= h(date('d.m.Y · H:i', strtotime($appointment['beginn']))) ?></time>
-                                        <strong><?= h($appointment['vorname'] . ' ' . $appointment['nachname']) ?></strong>
+                                        <strong><a href="client-overview.php?id=<?= h($appointment['klient_id']) ?>"><?= h($appointment['vorname'] . ' ' . $appointment['nachname']) ?></a></strong>
                                         <small><?= h((string) $appointment['dauer_minuten']) ?> Min. · <?= h($formatLabels[$appointment['format']] ?? $appointment['format']) ?></small>
                                     </li>
                                 <?php endforeach; ?>
