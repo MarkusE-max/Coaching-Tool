@@ -24,7 +24,7 @@ try{$s=$db->prepare('SELECT status FROM coaching_klientenstatus WHERE klient_id=
 $meta=$db->query('SHOW COLUMNS FROM termine')->fetchAll(PDO::FETCH_ASSOC);$cols=array_column($meta,'Field');$topic=null;foreach(['thema','titel','beschreibung'] as $candidate)if(in_array($candidate,$cols,true)){$topic=$candidate;break;}
 $topicSql=$topic?'t.`'.$topic.'` AS thema':"'' AS thema";
 $q=$db->prepare('SELECT t.id,t.beginn,t.dauer_minuten,t.format,t.status,'.$topicSql.' FROM termine t WHERE t.klient_id=:id ORDER BY t.beginn DESC LIMIT 100');$q->execute(['id'=>$id]);$appointments=$q->fetchAll(PDO::FETCH_ASSOC);
-$q=$db->prepare('SELECT id,titel,beschreibung,erfolgskriterium,zieltermin,status,geaendert_am FROM coaching_ziele WHERE klient_id=:id ORDER BY geaendert_am DESC LIMIT 100');$q->execute(['id'=>$id]);$goals=$q->fetchAll(PDO::FETCH_ASSOC);
+$goalSql='SELECT id,titel,beschreibung,erfolgskriterium,zieltermin,status,geaendert_am FROM coaching_ziele WHERE klient_id=:id'.($admin?'':' AND coach_benutzer_id=:coach').' ORDER BY geaendert_am DESC LIMIT 100';$q=$db->prepare($goalSql);$gp=['id'=>$id];if(!$admin)$gp['coach']=(int)$user['id'];$q->execute($gp);$goals=$q->fetchAll(PDO::FETCH_ASSOC);
 $notes=[];$documents=[];$files=[];
 if(!$admin){
  $q=$db->prepare('SELECT n.id,n.titel,n.inhalt,n.erstellt_am,n.termin_id,t.beginn FROM coaching_sitzungsnotizen n LEFT JOIN termine t ON t.id=n.termin_id WHERE n.klient_id=:id AND n.coach_benutzer_id=:coach ORDER BY n.erstellt_am DESC LIMIT 100');$q->execute(['id'=>$id,'coach'=>(int)$user['id']]);$notes=$q->fetchAll(PDO::FETCH_ASSOC);
