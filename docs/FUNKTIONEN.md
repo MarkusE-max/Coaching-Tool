@@ -35,4 +35,4 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 
 ## Datenbankänderung
 
-Die SQL-Datei `database/migrations/001_sitzungsnotizen_ziele.sql` ergänzt die Tabellen für Sitzungsnotizen und Ziele. `database/migrations/002_dokumente.sql` ergänzt Vorlagen, Klientenzuweisungen und versionierte Rücklaufdateien. Vor jeder Migration eine Datenbanksicherung erstellen und die Tabellenrechte des Anwendungsbenutzers prüfen. Vor jeder Migration eine Datenbanksicherung erstellen und die Tabellenrechte des Anwendungsbenutzers prüfen.
+Die SQL-Datei `database/migrations/001_sitzungsnotizen_ziele.sql` ergänzt die Tabellen für Sitzungsnotizen und Ziele. `database/migrations/002_dokumente.sql` ergänzt Vorlagen, Klientenzuweisungen und versionierte Rücklaufdateien. Vor jeder Migration eine Datenbanksicherung erstellen und die Tabellenrechte des Anwendungsbenutzers prüfen.
