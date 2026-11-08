@@ -25,17 +25,19 @@ Web Station serves PHP pages directly and starts PHP for each request.
 4. Configure the database using the steps below.
 5. Open the Web Station portal. The database health check is at `/health.php`.
 
-Only `public/` should be the document root. Keep the private configuration and application code outside it. The Web Station `http` group needs read access to the website and app files.
+Only `public/` should be the document root. Keep the private configuration and application code outside it. The Web Station `http` group needs read access to the website and app files. The PHP process also needs write access to the private document storage folder outside `public/` (by default, the repository-root `storage/documents/`).
 
 ## MariaDB connection
 
 1. Confirm MariaDB 10 is running and check its current port in DSM.
-2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, SELECT/INSERT/UPDATE on `klienten`, SELECT/INSERT/UPDATE on `termine`, SELECT/INSERT/UPDATE on `coaching_sitzungsnotizen` and `coaching_ziele`, and SELECT/INSERT on `login_versuche`.
+2. The application account needs SELECT/INSERT/UPDATE on `benutzer`, `klienten`, `termine`, `coaching_sitzungsnotizen`, `coaching_ziele`, `coaching_dokumentvorlagen` and `coaching_klientendokumente`; SELECT/INSERT on `login_versuche` and `coaching_dokumentdateien`.
 3. Copy `config.example.php` to `config.local.php` in the project root on the NAS and set the host, port, username and password.
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
-5. Back up MariaDB and import `database/migrations/001_sitzungsnotizen_ziele.sql` into `coaching_tool`. It adds the private session-note and goal tables; it does not alter the existing client or appointment tables.
-6. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
-7. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated files from `public/` to the NAS, including `assets/layout.css` and `assets/layout.js`, and copy `app/navigation.php` into the private `app/` folder.
+5. Create a full MariaDB backup before changing the schema.
+6. Import `database/migrations/001_sitzungsnotizen_ziele.sql` and then `database/migrations/002_dokumente.sql` into `coaching_tool`. These additive migrations create the notes/goals and private document tables; they do not alter existing client or appointment tables.
+7. Ensure the PHP process can write to the private `storage/documents/` folder outside the webroot. To use a different absolute folder, set `'document_storage_path' => '/absolute/private/path'` in `config.local.php`. Keep that folder out of `public/` and out of shared web folders.
+8. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
+9. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated files from `public/` to the NAS, including `documents.php`, `document-download.php`, `assets/layout.css` and `assets/layout.js`; copy `app/document_storage.php`, `app/navigation.php` into the private `app/` folder. Also copy the updated `app/schema.php`.
 
 ## First administrator setup
 
@@ -62,6 +64,7 @@ Open `http://127.0.0.1:8080/`. On the NAS, Web Station keeps the site available 
 
 - No real coaching data is included in this repository.
 - Database credentials stay on the NAS in `config.local.php`.
+- Coaching documents are stored under random filenames outside `public/`; downloads require a coach login and an ownership check. Templates and returned files are limited to PDF/JPG/PNG and 15 MB per upload.
 - Never connect to MariaDB from browser JavaScript.
 - Use synthetic data until tenant separation, account recovery and the coachee portal have been reviewed.
 - Use HTTPS before entering real coaching data. Keep the NAS private on the LAN during development and do not create router port forwarding.
