@@ -174,9 +174,12 @@ foreach ($clients as $client) $clientsById[(int) $client['id']] = $client;
 <title>Terminverwaltung · Coaching Tool</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f302d;background:#f5f7f5}*{box-sizing:border-box}body{margin:0}.page{max-width:1120px;margin:auto;padding:24px clamp(18px,5vw,64px) 70px}.bar{display:flex;justify-content:space-between;padding:14px 0 22px;border-bottom:1px solid #e2e9e4}.brand{color:inherit;text-decoration:none;font-weight:700}.brand span{font-weight:400;color:#60716b}a{color:#35695b}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.04em;margin:38px 0 8px}p{color:#65766f;line-height:1.55}.layout{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:20px;margin-top:26px}.card{background:white;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.card h2{font-size:18px;margin:0 0 18px}.form{display:grid;gap:10px}.form label{font-size:13px;font-weight:650;margin-top:6px}.form input,.form select{width:100%;border:1px solid #dce5df;border-radius:9px;padding:12px;font:inherit;background:white}.button{border:0;border-radius:9px;padding:12px 16px;background:#245c50;color:white;font:inherit;font-weight:650;cursor:pointer;margin-top:12px}.notice,.error{padding:12px 14px;border-radius:9px}.notice{background:#edf5ef;color:#245c50}.error{background:#fff3f1;color:#8c3434}.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #edf1ee}.row:last-child{border-bottom:0}.muted{color:#74817c;font-size:12px}.tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef3ef;color:#53675e;font-size:11px}@media(max-width:760px){.layout{grid-template-columns:1fr}}
-</style></head>
-<body><main class="page">
-<header class="bar"><a class="brand" href="./">Coaching<span>Tool</span></a><nav><a href="clients.php">Klienten</a> · <a href="goals.php">Ziele</a><?php if ($user['role'] === 'coach'): ?> · <a href="notes.php">Private Notizen</a><?php endif; ?></nav></header>
+</style><link rel="stylesheet" href="assets/layout.css"><script src="assets/layout.js" defer></script>
+</head>
+<body class="has-app-sidebar">
+<?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($user, 'appointments', $token); ?>
+<main class="page">
+
 <h1>Terminverwaltung</h1><p>Plane Termine, ändere sie bei Bedarf und behalte den bisherigen Verlauf pro Klient im Blick.</p>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= appointmentH($message) ?></p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="error" role="alert"><?= appointmentH($error) ?></p><?php endif; ?>
