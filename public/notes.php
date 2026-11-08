@@ -25,7 +25,7 @@ if (!is_string($token) || strlen($token) !== 64) { $token = bin2hex(random_bytes
 $coachId = (int) $user['id'];
 $error = '';
 $message = isset($_GET['saved']) ? 'Die Sitzungsnotiz wurde gespeichert.' : '';
-$values = ['id' => 0, 'klient_id' => 0, 'termin_id' => '', 'format_id' => '', 'titel' => '', 'inhalt' => ''];
+$values = ['id' => 0, 'klient_id' => 0, 'termin_id' => '', 'format_id' => '', 'skala_vorher' => '', 'skala_nachher' => '', 'titel' => '', 'inhalt' => ''];
 
 $clientQuery = $database->prepare('SELECT id, vorname, nachname FROM klienten WHERE benutzer_id = :owner ORDER BY nachname, vorname');
 $clientQuery->execute(['owner' => $coachId]);
@@ -52,8 +52,15 @@ try {
         $body = trim(is_string($_POST['inhalt'] ?? null) ? $_POST['inhalt'] : '');
         $formatId = filter_var($_POST['format_id'] ?? '', FILTER_VALIDATE_INT);
         $formatId = $formatId === false || $formatId === 0 ? null : (int) $formatId;
-        $values = ['id' => max(0, $id), 'klient_id' => $clientId, 'termin_id' => $appointmentId ?? '', 'format_id' => $formatId ?? '', 'titel' => $title, 'inhalt' => $body];
+        $ratingBeforeRaw = trim(is_string($_POST['skala_vorher'] ?? null) ? $_POST['skala_vorher'] : '');
+        $ratingAfterRaw = trim(is_string($_POST['skala_nachher'] ?? null) ? $_POST['skala_nachher'] : '');
+        $ratingBefore = $ratingBeforeRaw === '' ? null : filter_var($ratingBeforeRaw, FILTER_VALIDATE_INT);
+        $ratingAfter = $ratingAfterRaw === '' ? null : filter_var($ratingAfterRaw, FILTER_VALIDATE_INT);
+        $values = ['id' => max(0, $id), 'klient_id' => $clientId, 'termin_id' => $appointmentId ?? '', 'format_id' => $formatId ?? '', 'skala_vorher' => $ratingBeforeRaw, 'skala_nachher' => $ratingAfterRaw, 'titel' => $title, 'inhalt' => $body];
         if (!is_string($csrf) || !hash_equals($token, $csrf)) throw new InvalidArgumentException('Die Anfrage ist abgelaufen. Bitte lade die Seite neu.');
+        if (($ratingBefore === null) !== ($ratingAfter === null) || $ratingBefore === false || $ratingAfter === false || ($ratingBefore !== null && ($ratingBefore < -10 || $ratingBefore > 10)) || ($ratingAfter !== null && ($ratingAfter < -10 || $ratingAfter > 10))) {
+            throw new InvalidArgumentException('Bitte beide Skalenwerte zwischen -10 und +10 angeben oder beide Felder leer lassen.');
+        }
         if ($id < 0 || $clientId < 1 || $title === '' || strlen($title) > 190 || $body === '' || strlen($body) > 1000000) {
             throw new InvalidArgumentException('Bitte wähle einen Klienten und gib Titel und Notiztext ein.');
         }
@@ -74,11 +81,11 @@ try {
             $exists = $database->prepare('SELECT id FROM coaching_sitzungsnotizen WHERE id = :id AND coach_benutzer_id = :owner');
             $exists->execute(['id' => $id, 'owner' => $coachId]);
             if (!$exists->fetchColumn()) throw new InvalidArgumentException('Die Notiz wurde nicht gefunden.');
-            $update = $database->prepare('UPDATE coaching_sitzungsnotizen SET klient_id = :client_id, termin_id = :appointment_id, format_id = :format_id, titel = :title, inhalt = :body WHERE id = :id AND coach_benutzer_id = :owner');
-            $update->execute(['client_id' => $clientId, 'appointment_id' => $appointmentId, 'format_id' => $formatId, 'title' => $title, 'body' => $body, 'id' => $id, 'owner' => $coachId]);
+            $update = $database->prepare('UPDATE coaching_sitzungsnotizen SET klient_id = :client_id, termin_id = :appointment_id, format_id = :format_id, titel = :title, inhalt = :body, skala_vorher = :skala_vorher, skala_nachher = :skala_nachher WHERE id = :id AND coach_benutzer_id = :owner');
+            $update->execute(['client_id' => $clientId, 'appointment_id' => $appointmentId, 'format_id' => $formatId, 'title' => $title, 'body' => $body, 'skala_vorher' => $ratingBefore, 'skala_nachher' => $ratingAfter, 'id' => $id, 'owner' => $coachId]);
         } else {
-            $insert = $database->prepare("INSERT INTO coaching_sitzungsnotizen (termin_id, format_id, klient_id, coach_benutzer_id, titel, inhalt, sichtbarkeit) VALUES (:appointment_id, :format_id, :client_id, :owner, :title, :body, 'coach_private')");
-            $insert->execute(['appointment_id' => $appointmentId, 'format_id' => $formatId, 'client_id' => $clientId, 'owner' => $coachId, 'title' => $title, 'body' => $body]);
+            $insert = $database->prepare("INSERT INTO coaching_sitzungsnotizen (termin_id, format_id, klient_id, coach_benutzer_id, titel, inhalt, skala_vorher, skala_nachher, sichtbarkeit) VALUES (:appointment_id, :format_id, :client_id, :owner, :title, :body, :skala_vorher, :skala_nachher, 'coach_private')");
+            $insert->execute(['appointment_id' => $appointmentId, 'format_id' => $formatId, 'client_id' => $clientId, 'owner' => $coachId, 'title' => $title, 'body' => $body, 'skala_vorher' => $ratingBefore, 'skala_nachher' => $ratingAfter]);
         }
         header('Location: notes.php?saved=1');
         exit;
@@ -97,12 +104,14 @@ try {
     if (isset($_GET['edit'])) {
         $editId = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($editId === false || (int) $editId < 1) throw new InvalidArgumentException('Ungültige Notiz-ID.');
-        $query = $database->prepare('SELECT n.id, n.klient_id, n.termin_id, n.format_id, n.titel, n.inhalt FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id WHERE n.id = :id AND n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner');
+        $query = $database->prepare('SELECT n.id, n.klient_id, n.termin_id, n.format_id, n.skala_vorher, n.skala_nachher, n.titel, n.inhalt FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id WHERE n.id = :id AND n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner');
         $query->execute(['id' => (int) $editId, 'note_owner' => $coachId, 'client_owner' => $coachId]);
         $record = $query->fetch(PDO::FETCH_ASSOC);
         if (!$record) throw new InvalidArgumentException('Die Notiz wurde nicht gefunden.');
         $values = $record;
         $values['format_id'] = $record['format_id'] ?? '';
+        $values['skala_vorher'] = $record['skala_vorher'] ?? '';
+        $values['skala_nachher'] = $record['skala_nachher'] ?? '';
     }
 } catch (InvalidArgumentException $exception) {
     $error = $exception->getMessage();
@@ -115,7 +124,7 @@ $search = trim(is_string($_GET['q'] ?? null) ? $_GET['q'] : '');
 if (strlen($search) > 190) $search = substr($search, 0, 190);
 $notes = [];
 try {
-    $list = $database->prepare('SELECT n.id, n.termin_id, n.klient_id, n.titel, n.inhalt, n.erstellt_am, n.format_id, f.titel AS format_titel, k.vorname, k.nachname, t.beginn FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id LEFT JOIN coaching_formate f ON f.id = n.format_id LEFT JOIN termine t ON t.id = n.termin_id WHERE n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner AND (:search = \'%%\' OR n.titel LIKE :title_search OR n.inhalt LIKE :body_search) ORDER BY n.erstellt_am DESC LIMIT 200');
+    $list = $database->prepare('SELECT n.id, n.termin_id, n.klient_id, n.titel, n.inhalt, n.erstellt_am, n.format_id, n.skala_vorher, n.skala_nachher, f.titel AS format_titel, k.vorname, k.nachname, t.beginn FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id LEFT JOIN coaching_formate f ON f.id = n.format_id LEFT JOIN termine t ON t.id = n.termin_id WHERE n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner AND (:search = \'%%\' OR n.titel LIKE :title_search OR n.inhalt LIKE :body_search) ORDER BY n.erstellt_am DESC LIMIT 200');
     $needle = '%' . $search . '%';
     $list->execute(['note_owner' => $coachId, 'client_owner' => $coachId, 'search' => $search === '' ? '%%' : $search, 'title_search' => $needle, 'body_search' => $needle]);
     $notes = $list->fetchAll(PDO::FETCH_ASSOC);
@@ -127,7 +136,7 @@ try {
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Private Sitzungsnotizen · Coaching Tool</title>
 <style>
-:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f302d;background:#f5f7f5}*{box-sizing:border-box}body{margin:0}.page{max-width:1120px;margin:auto;padding:24px clamp(18px,5vw,64px) 70px}.bar{display:flex;justify-content:space-between;padding:14px 0 22px;border-bottom:1px solid #e2e9e4}.brand{color:inherit;text-decoration:none;font-weight:700}.brand span{font-weight:400;color:#60716b}a{color:#35695b}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.04em;margin:38px 0 8px}p{color:#65766f;line-height:1.55}.layout{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:20px;margin-top:26px}.card{background:white;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.form{display:grid;gap:10px}.form label{font-size:13px;font-weight:650;margin-top:6px}.form input,.form select,.form textarea{width:100%;border:1px solid #dce5df;border-radius:9px;padding:12px;font:inherit;background:#fff}.form textarea{min-height:180px;resize:vertical}.button{border:0;border-radius:9px;padding:12px 16px;background:#245c50;color:white;font:inherit;font-weight:650;cursor:pointer;margin-top:12px}.error{padding:12px;background:#fff3f1;color:#8c3434;border-radius:9px}.notice{padding:12px;background:#edf5ef;color:#245c50;border-radius:9px}.note{padding:14px 0;border-bottom:1px solid #edf1ee}.note:last-child{border:0}.note-title{font-weight:650}.muted{color:#74817c;font-size:12px}.note-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;margin-top:8px}.search{display:flex;gap:8px;margin:15px 0}.search input{flex:1;min-width:0;border:1px solid #dce5df;border-radius:9px;padding:10px}.tag{font-size:11px;border-radius:999px;background:#eef3ef;padding:4px 8px}@media(max-width:760px){.layout{grid-template-columns:1fr}}
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f302d;background:#f5f7f5}*{box-sizing:border-box}body{margin:0}.page{max-width:1120px;margin:auto;padding:24px clamp(18px,5vw,64px) 70px}.bar{display:flex;justify-content:space-between;padding:14px 0 22px;border-bottom:1px solid #e2e9e4}.brand{color:inherit;text-decoration:none;font-weight:700}.brand span{font-weight:400;color:#60716b}a{color:#35695b}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.04em;margin:38px 0 8px}p{color:#65766f;line-height:1.55}.layout{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:20px;margin-top:26px}.card{background:white;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.form{display:grid;gap:10px}.form label{font-size:13px;font-weight:650;margin-top:6px}.form input,.form select,.form textarea{width:100%;border:1px solid #dce5df;border-radius:9px;padding:12px;font:inherit;background:#fff}.form textarea{min-height:180px;resize:vertical}.button{border:0;border-radius:9px;padding:12px 16px;background:#245c50;color:white;font:inherit;font-weight:650;cursor:pointer;margin-top:12px}.error{padding:12px;background:#fff3f1;color:#8c3434;border-radius:9px}.notice{padding:12px;background:#edf5ef;color:#245c50;border-radius:9px}.note{padding:14px 0;border-bottom:1px solid #edf1ee}.note:last-child{border:0}.note-title{font-weight:650}.muted{color:#74817c;font-size:12px}.note-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;margin-top:8px}.search{display:flex;gap:8px;margin:15px 0}.search input{flex:1;min-width:0;border:1px solid #dce5df;border-radius:9px;padding:10px}.tag{font-size:11px;border-radius:999px;background:#eef3ef;padding:4px 8px}.rating-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rating-fields input{width:100%;border:1px solid #dce5df;border-radius:9px;padding:10px;font:inherit}@media(max-width:760px){.layout{grid-template-columns:1fr}}
 </style><link rel="stylesheet" href="assets/layout.css"><script src="assets/layout.js" defer></script>
 </head>
 <body class="has-app-sidebar">
@@ -141,8 +150,9 @@ try {
 <label for="termin_id">Termin (optional)</label><select id="termin_id" name="termin_id"><option value="">Keinem Termin zuordnen</option><?php foreach ($appointments as $appointment): ?><option value="<?= noteH($appointment['id']) ?>" <?= (int) ($values['termin_id'] ?? 0) === (int) $appointment['id'] ? 'selected' : '' ?>><?= noteH(date('d.m.Y H:i', strtotime($appointment['beginn'])) . ' · ' . $appointment['vorname'] . ' ' . $appointment['nachname']) ?></option><?php endforeach; ?></select>
 <label for="format_id">Wissensdatenbank-Eintrag (optional)</label><select id="format_id" name="format_id"><option value="">Kein Format verknüpfen</option><?php foreach ($formats as $format): ?><option value="<?= noteH($format['id']) ?>" <?= (int) ($values['format_id'] ?? 0) === (int) $format['id'] ? 'selected' : '' ?>><?= noteH($format['titel']) ?></option><?php endforeach; ?></select>
 <label for="titel">Titel</label><input id="titel" name="titel" maxlength="190" required value="<?= noteH($values['titel']) ?>">
+<label>Verlaufsskala (optional, -10 bis +10)</label><div class="rating-fields"><label for="skala_vorher">Vorher</label><input id="skala_vorher" name="skala_vorher" type="number" min="-10" max="10" step="1" value="<?= noteH($values['skala_vorher'] ?? '') ?>" placeholder="-10 bis +10"><label for="skala_nachher">Nachher</label><input id="skala_nachher" name="skala_nachher" type="number" min="-10" max="10" step="1" value="<?= noteH($values['skala_nachher'] ?? '') ?>" placeholder="-10 bis +10"></div><div class="muted">Entweder beide Werte eintragen oder beide Felder leer lassen.</div>
 <label for="inhalt">Notiz</label><textarea id="inhalt" name="inhalt" required><?= noteH($values['inhalt']) ?></textarea>
 <button class="button" type="submit">Notiz speichern</button><?php if ((int) $values['id'] > 0): ?> <a href="notes.php">Abbrechen</a><?php endif; ?></form></section>
 <section class="card"><h2>Notizen (<?= count($notes) ?>)</h2><form class="search" method="get"><input name="q" value="<?= noteH($search) ?>" placeholder="Notizen durchsuchen"><button type="submit">Suchen</button></form>
-<?php if ($notes === []): ?><p>Noch keine privaten Notizen vorhanden.</p><?php else: ?><?php foreach ($notes as $note): ?><article class="note"><div class="note-title"><?= noteH($note['titel']) ?> <span class="tag"><?= noteH($note['vorname'] . ' ' . $note['nachname']) ?></span></div><div class="muted"><?php if ($note['beginn']): ?><?= noteH(date('d.m.Y H:i', strtotime($note['beginn']))) ?> · <?php endif; ?><?= noteH(date('d.m.Y H:i', strtotime($note['erstellt_am']))) ?></div><?php if (!empty($note['format_titel'])): ?><div class="muted">Wissensformat: <?= noteH($note['format_titel']) ?></div><?php endif; ?><div class="note-body"><?= noteH($note['inhalt']) ?></div><a href="notes.php?edit=<?= noteH($note['id']) ?>">Bearbeiten</a></article><?php endforeach; ?><?php endif; ?>
+<?php if ($notes === []): ?><p>Noch keine privaten Notizen vorhanden.</p><?php else: ?><?php foreach ($notes as $note): ?><article class="note"><div class="note-title"><?= noteH($note['titel']) ?> <span class="tag"><?= noteH($note['vorname'] . ' ' . $note['nachname']) ?></span></div><div class="muted"><?php if ($note['beginn']): ?><?= noteH(date('d.m.Y H:i', strtotime($note['beginn']))) ?> · <?php endif; ?><?= noteH(date('d.m.Y H:i', strtotime($note['erstellt_am']))) ?></div><?php if (!empty($note['format_titel'])): ?><div class="muted">Wissensformat: <?= noteH($note['format_titel']) ?></div><?php endif; ?><?php if ($note['skala_vorher'] !== null && $note['skala_nachher'] !== null): ?><div class="muted">Verlaufsskala: Vorher <?= noteH($note['skala_vorher']) ?> · Nachher <?= noteH($note['skala_nachher']) ?></div><?php endif; ?><div class="note-body"><?= noteH($note['inhalt']) ?></div><a href="notes.php?edit=<?= noteH($note['id']) ?>">Bearbeiten</a></article><?php endforeach; ?><?php endif; ?>
 </section></div><p><a href="./">Zur Übersicht</a></p></main></body></html>
