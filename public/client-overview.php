@@ -29,7 +29,7 @@ $notes=[];$documents=[];$files=[];
 if(!$admin){
  $q=$db->prepare('SELECT n.id,n.titel,n.inhalt,n.erstellt_am,n.termin_id,t.beginn FROM coaching_sitzungsnotizen n LEFT JOIN termine t ON t.id=n.termin_id WHERE n.klient_id=:id AND n.coach_benutzer_id=:coach ORDER BY n.erstellt_am DESC LIMIT 100');$q->execute(['id'=>$id,'coach'=>(int)$user['id']]);$notes=$q->fetchAll(PDO::FETCH_ASSOC);
  $q=$db->prepare('SELECT id,titel,vorlage_version,status,zugewiesen_am,ausgegeben_am FROM coaching_klientendokumente WHERE klient_id=:id AND coach_benutzer_id=:coach ORDER BY zugewiesen_am DESC LIMIT 100');$q->execute(['id'=>$id,'coach'=>(int)$user['id']]);$documents=$q->fetchAll(PDO::FETCH_ASSOC);
- $q=$db->prepare('SELECT f.id,f.klientendokument_id,f.version,f.originalname FROM coaching_dokumentdateien f INNER JOIN coaching_klientendokumente d ON d.id=f.klientendokument_id WHERE d.klient_id=:id AND d.coach_benutzer_id=:coach ORDER BY f.erstellt_am DESC');$q->execute(['id'=>$id,'coach'=>(int)$user['id']]);foreach($q->fetchAll(PDO::FETCH_ASSOC) as $f)$files[(int)$f['klientendokument_id']][]=$f;
+ $q=$db->prepare('SELECT f.id,f.klientendokument_id,f.version,f.originalname FROM coaching_dokumentdateien f INNER JOIN coaching_klientendokumente d ON d.id=f.klientendokument_id WHERE d.klient_id=:id AND d.coach_benutzer_id=:coach ORDER BY f.hochgeladen_am DESC');$q->execute(['id'=>$id,'coach'=>(int)$user['id']]);foreach($q->fetchAll(PDO::FETCH_ASSOC) as $f)$files[(int)$f['klientendokument_id']][]=$f;
 }
 $done=count(array_filter($appointments,static fn($a)=>in_array($a['status'],['abgeschlossen','stattgefunden'],true)));
 $active=count(array_filter($goals,static fn($g)=>$g['status']==='aktiv'));
