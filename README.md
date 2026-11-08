@@ -35,7 +35,7 @@ Only `public/` should be the document root. Keep the private configuration and a
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
 5. Create a full MariaDB backup before changing the schema.
 6. Import `database/migrations/001_sitzungsnotizen_ziele.sql` and then `database/migrations/002_dokumente.sql` into `coaching_tool`. These additive migrations create the notes/goals and private document tables; they do not alter existing client or appointment tables.
-7. Ensure the PHP process can write to the private `storage/documents/` folder outside the webroot. To use a different absolute folder, set `'document_storage_path' => '/absolute/private/path'` in `config.local.php`. Keep that folder out of `public/` and out of shared web folders.
+7. In the PHP 8.2 profile, allow uploads up to the app's 15 MB limit (for example `upload_max_filesize=16M` and `post_max_size=18M`). Ensure the PHP process can write to the private `storage/documents/` folder outside the webroot. To use a different absolute folder, set `'document_storage_path' => '/absolute/private/path'` in `config.local.php`. Keep that folder out of `public/` and out of shared web folders.
 8. Test `/health.php`. If `benutzer` is empty, add a private setup key to `config.local.php` and follow the first-admin steps below.
 9. After signing in as admin, open `/coaches.php` to create an active coach account, then assign clients to it in `/clients.php`. Copy the updated files from `public/` to the NAS, including `documents.php`, `document-download.php`, `assets/layout.css` and `assets/layout.js`; copy `app/document_storage.php`, `app/navigation.php` into the private `app/` folder. Also copy the updated `app/schema.php`.
 
