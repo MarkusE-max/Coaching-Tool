@@ -30,7 +30,7 @@ Only `public/` should be the document root. Keep the private configuration and a
 ## MariaDB connection
 
 1. Confirm MariaDB 10 is running and check its current port in DSM.
-2. The application account needs SELECT/INSERT/UPDATE on existing account/client/appointment tables and `coaching_sitzungsnotizen`, `coaching_ziele`, `coaching_dokumentvorlagen`, `coaching_klientendokumente`, `coaching_dokument_signaturanfragen`, `coaching_klientenstatus`, `coaching_portal_zugaenge`, `coaching_aufgaben`, and `coaching_design_einstellungen`, `coaching_nachrichten`, `coaching_nachrichten_dateien`, `coaching_formate`, and `coaching_format_freigaben`; SELECT/INSERT on `login_versuche` and `coaching_dokumentdateien`.
+2. The application account needs SELECT/INSERT/UPDATE on existing account/client/appointment tables and `coaching_sitzungsnotizen`, `coaching_ziele`, `coaching_dokumentvorlagen`, `coaching_klientendokumente`, `coaching_dokument_signaturanfragen`, `coaching_klientenstatus`, `coaching_portal_zugaenge`, `coaching_aufgaben`, `coaching_design_einstellungen`, and `coaching_formate`. Give `coaching_nachrichten` and `coaching_nachrichten_dateien` SELECT/INSERT; `coaching_format_freigaben` SELECT/INSERT/DELETE; and `login_versuche` and `coaching_dokumentdateien` SELECT/INSERT.
 3. Copy `config.example.php` to `config.local.php` in the project root on the NAS and set the host, port, username and password.
 4. Keep `config.local.php` private and outside `public/`; it is ignored by Git.
 5. Create a full MariaDB backup before changing the schema.

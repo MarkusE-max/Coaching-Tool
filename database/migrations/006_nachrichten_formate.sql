@@ -58,4 +58,4 @@ CREATE TABLE IF NOT EXISTS coaching_format_freigaben (
  KEY idx_format_freigabe_coach (coach_benutzer_id,format_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Rights needed: SELECT/INSERT for messages and message files; SELECT/INSERT/UPDATE for formats and format shares.
+-- Rights needed: SELECT/INSERT for messages and message files; SELECT/INSERT/UPDATE for coaching_formate; SELECT/INSERT/DELETE for coaching_format_freigaben.
