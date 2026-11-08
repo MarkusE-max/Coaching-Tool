@@ -7,7 +7,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 | F1 | Nutzer und Rollen | Login, Rollen Coach / Klient / Admin, Passwort-Reset | Teilweise umgesetzt: eigener Coachee-Login, Coach kann Passwort neu setzen; Coachee kann es im Portal ändern. Admin-Reset für Coachees fehlt. |
 | F2 | Klientenverwaltung | Klientenstammdaten, Status (aktiv/pausiert/abgeschlossen) | Teilweise: Stammdaten, Status und Coach-seitige Zuordnung eines Coachee-Zugangs sind vorhanden. |
 | F3 | Termine | Termine pro Klient anlegen, bearbeiten, Verlauf | Umgesetzt: Anlage, Bearbeitung und Verlauf; Rechte werden anhand der Klientenzuordnung geprüft. |
-| F4 | Stream | Gemeinsamer Nachrichtenverlauf Coach ↔ Klient, Dateianhänge | Geplant: nur ausdrücklich geteilte Nachrichten; Dateispeicherung außerhalb des öffentlichen Webordners. |
+| F4 | Stream | Gemeinsamer Nachrichtenverlauf Coach ↔ Klient, Dateianhänge | Im Code umgesetzt: Coach und Coachee können in der Klientenakte bzw. im Portal schreiben und PDF/JPG/PNG anhängen; Dateien liegen privat und werden rollen- und klientengebunden ausgeliefert. Synology-Funktionstest steht aus. |
 | F5 | Aufgaben | Übungen/Aktionen mit Fälligkeit und Status | Teilweise umgesetzt: Coach legt Aufgaben mit Fälligkeit an; Coachee aktualisiert den Status. Bearbeitung und Erinnerungen fehlen noch. |
 | F6 | Erinnerungen | Automatische E-Mail-Erinnerungen zu Aufgaben | Geplant: benötigt SMTP-Konfiguration, zeitgesteuerten DSM-Aufruf und Versandprotokoll. |
 | F7 | Private Notizen | Nur für Coach sichtbar, durchsuchbar | Umgesetzt: private Notizen sind coachgebunden, optional mit einem Termin verknüpft und durchsuchbar; Klient und Admin erhalten keinen Zugriff. |
@@ -27,7 +27,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 - Die QR-Signatur ist coachseitig über HTTPS verfügbar. Klientendaten und PDFs gehen nicht an den QR-Code-Dienst; die PDF-Bibliothek wird im Browser von einem versionierten CDN geladen. Prüfe, ob dieses Signaturverfahren für das jeweilige Dokument passend ist.
 - Beide Wege (Scan-Upload und QR-Signatur) speichern Originalvorlage, Version, Rücklauf, Zeitpunkte und Status; Dateien bleiben außerhalb des öffentlichen Webordners und sind nur nach serverseitiger Rechteprüfung erreichbar.
 
-## Zusätzlicher Umfang
+## NLP-Formate-Wissenssammlung\n\n- Coaches können eigene Formate mit Kategorie, Ziel/Einsatzbereich, Ablauf, Dauer, Materialien, Hinweisen und Quellen erfassen und durchsuchen.\n- Jeder Eintrag ist privat, für ausgewählte aktive Coaches lesbar oder für alle aktiven Coaches freigegeben. Freigegebene Einträge sind für andere Coaches nur lesbar.\n- Die Sammlung wird nicht mit vorgefertigten Praxisanleitungen befüllt; Inhalte werden durch die Coaches eingetragen und können Quellenangaben enthalten. Keine Klientenidentifikationsdaten in geteilte Einträge schreiben.\n\n## Zusätzlicher Umfang
 
 - Termine, Sitzungsnotizen und Ziele hängen an einem Klienten und sind im Verlauf auffindbar.
 - Bestehende Einträge sollen über eine Bearbeiten-Funktion änderbar sein.

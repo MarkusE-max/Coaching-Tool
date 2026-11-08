@@ -16,6 +16,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks'], true);
     $docsOpen = in_array($active, ['notes', 'documents'], true);
     $designOpen = $active === 'design';
+    $knowledgeOpen = $active === 'formats';
     $adminOpen = $active === 'coaches';
     require_once dirname(__DIR__) . '/app/theme.php';
     $themeDatabase = coachingDatabase();
@@ -59,6 +60,12 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                     <summary><span class="sidebar-link-icon" aria-hidden="true">◐</span><span>Darstellung</span></summary>
                     <div class="sidebar-submenu"><a class="sidebar-link<?= $active === 'design' ? ' is-active' : '' ?>" href="design-settings.php"<?= $active === 'design' ? ' aria-current="page"' : '' ?>>Schrift und Farben</a></div>
                 </details>
+                <?php if ($role === 'coach'): ?>
+                <details class="sidebar-group"<?= $knowledgeOpen ? ' open' : '' ?>>
+                    <summary><span class="sidebar-link-icon" aria-hidden="true">▣</span><span>Wissenssammlung</span></summary>
+                    <div class="sidebar-submenu"><a class="sidebar-link<?= $active === 'formats' ? ' is-active' : '' ?>" href="formats.php"<?= $active === 'formats' ? ' aria-current="page"' : '' ?>>NLP-Formate</a></div>
+                </details>
+                <?php endif; ?>
                 <?php if ($isAdmin): ?>
                 <details class="sidebar-group"<?= $adminOpen ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">⚙</span><span>Verwaltung</span></summary>
