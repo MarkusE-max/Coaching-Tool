@@ -16,6 +16,17 @@ function coachingConfig(): array
     return $config;
 }
 
+function coachingActiveEngagementId(PDO $database, int $clientId): int
+{
+    $query = $database->prepare("SELECT id FROM coaching_auftraege WHERE klient_id = :client AND status = 'aktiv' ORDER BY id DESC LIMIT 1");
+    $query->execute(['client' => $clientId]);
+    $id = $query->fetchColumn();
+    if ($id === false) {
+        throw new RuntimeException('Für diesen Klienten gibt es keinen aktiven Coaching-Auftrag. Lege zuerst über Coaching-Aufträge einen neuen Auftrag an.');
+    }
+    return (int) $id;
+}
+
 function coachingDatabase(): PDO
 {
     $database = coachingConfig()['database'] ?? null;
