@@ -50,6 +50,10 @@ foreach (['telefon', 'telefonnummer', 'telefon_nr', 'phone', 'mobil'] as $candid
 }
 $emailSelect = $emailColumn !== null ? 'k.' . $emailColumn . ' AS email' : 'NULL AS email';
 $phoneSelect = $phoneColumn !== null ? 'k.' . $phoneColumn . ' AS telefon' : 'NULL AS telefon';
+$billingFields = ['adresse_strasse','adresse_plz','adresse_ort','adresse_land','rechnungsadresse_abweichend','rechnung_empfaenger','rechnung_strasse','rechnung_plz','rechnung_ort','rechnung_land','rechnung_email','kundennummer','stundensatz','preisvereinbarung','zahlungsziel_tage'];
+$billingSchemaReady = count(array_diff($billingFields, $clientColumns)) === 0;
+$billingSelect = implode(', ', array_map(static fn(string $column): string => in_array($column, $clientColumns, true) ? 'k.' . $column . ' AS ' . $column : 'NULL AS ' . $column, $billingFields));
+if (!$billingSchemaReady) $schemaWarning = trim($schemaWarning . ' Für Adress- und Rechnungsdaten bitte zuerst database/migrations/010_klienten_rechnungsdaten.sql importieren.');
 $token = $_SESSION['csrf_token'] ?? '';
 if (!is_string($token) || strlen($token) !== 64) {
     $token = bin2hex(random_bytes(32));
@@ -60,7 +64,7 @@ $isManager = $user['role'] === 'verwalter';
 $canSeeAllClients = $isAdmin || $isManager;
 $message = '';
 $error = $schemaWarning;
-$values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'email' => '', 'telefon' => '', 'benutzer_id' => $isManager ? 0 : (int) $user['id']];
+$values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'email' => '', 'telefon' => '', 'benutzer_id' => $isManager ? 0 : (int) $user['id'], 'adresse_strasse' => '', 'adresse_plz' => '', 'adresse_ort' => '', 'adresse_land' => '', 'rechnungsadresse_abweichend' => 0, 'rechnung_empfaenger' => '', 'rechnung_strasse' => '', 'rechnung_plz' => '', 'rechnung_ort' => '', 'rechnung_land' => '', 'rechnung_email' => '', 'kundennummer' => '', 'stundensatz' => '', 'preisvereinbarung' => '', 'zahlungsziel_tage' => ''];
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -74,6 +78,23 @@ try {
         $last = trim(is_string($_POST['nachname'] ?? null) ? $_POST['nachname'] : '');
         $email = trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : '');
         $phone = trim(is_string($_POST['telefon'] ?? null) ? $_POST['telefon'] : '');
+$billingValues = [];
+if ($billingSchemaReady) {
+    $billingTextFields = ['adresse_strasse','adresse_plz','adresse_ort','adresse_land','rechnung_empfaenger','rechnung_strasse','rechnung_plz','rechnung_ort','rechnung_land','rechnung_email','kundennummer','preisvereinbarung'];
+    foreach ($billingTextFields as $field) $billingValues[$field] = trim(is_string($_POST[$field] ?? null) ? $_POST[$field] : '');
+    $billingValues['rechnungsadresse_abweichend'] = (($_POST['rechnungsadresse_abweichend'] ?? '') === '1') ? 1 : 0;
+    $rateInput = trim(is_string($_POST['stundensatz'] ?? null) ? $_POST['stundensatz'] : '');
+    $rateInput = str_replace(',', '.', $rateInput);
+    if ($rateInput !== '' && (!preg_match('/^\\d{1,8}(?:\\.\\d{1,2})?$/', $rateInput) || (float) $rateInput > 99999999.99)) throw new InvalidArgumentException('Bitte gib einen gültigen Stundensatz mit höchstens zwei Nachkommastellen ein.');
+    $billingValues['stundensatz'] = $rateInput === '' ? null : number_format((float) $rateInput, 2, '.', '');
+    $daysInput = trim(is_string($_POST['zahlungsziel_tage'] ?? null) ? $_POST['zahlungsziel_tage'] : '');
+    $days = $daysInput === '' ? null : filter_var($daysInput, FILTER_VALIDATE_INT);
+    if ($daysInput !== '' && ($days === false || $days < 1 || $days > 365)) throw new InvalidArgumentException('Das Zahlungsziel muss zwischen 1 und 365 Tagen liegen.');
+    $billingValues['zahlungsziel_tage'] = $days === false ? null : $days;
+    $lengthLimits = ['adresse_strasse'=>190,'adresse_plz'=>20,'adresse_ort'=>100,'adresse_land'=>100,'rechnung_empfaenger'=>190,'rechnung_strasse'=>190,'rechnung_plz'=>20,'rechnung_ort'=>100,'rechnung_land'=>100,'rechnung_email'=>190,'kundennummer'=>40,'preisvereinbarung'=>5000];
+    foreach ($lengthLimits as $field => $limit) if (strlen($billingValues[$field]) > $limit) throw new InvalidArgumentException('Ein Rechnungs- oder Adressfeld überschreitet die zulässige Länge.');
+    if ($billingValues['rechnung_email'] !== '' && !filter_var($billingValues['rechnung_email'], FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Bitte gib eine gültige E-Mail-Adresse für Rechnungen ein.');
+}
         if ($isAdmin && $id === 0) throw new InvalidArgumentException('Administratoren können keine Klienten anlegen oder Coaches zuordnen. Bitte nutze dafür ein Coach- oder Verwalterkonto.');
         $ownerInput = $isManager ? filter_var($_POST['benutzer_id'] ?? null, FILTER_VALIDATE_INT) : null;
         if ($first === '' || $last === '' || strlen($first) > 400 || strlen($last) > 400) {
@@ -107,6 +128,7 @@ try {
             if ($isManager) { $set[] = 'benutzer_id = :owner'; $updateParams['owner'] = $owner; }
             if ($emailColumn !== null) { $set[] = $emailColumn . ' = :email'; $updateParams['email'] = $email ?: null; }
             if ($phoneColumn !== null) { $set[] = $phoneColumn . ' = :phone'; $updateParams['phone'] = $phone ?: null; }
+            if ($billingSchemaReady) foreach ($billingValues as $column => $value) { $set[] = $column . ' = :billing_' . $column; $updateParams['billing_' . $column] = $value; }
             if ($isManager) $database->beginTransaction();
             $update = $database->prepare('UPDATE klienten SET ' . implode(', ', $set) . ' WHERE id = :id');
             $update->execute($updateParams);
@@ -124,6 +146,7 @@ try {
             $insertParams = ['owner' => $owner, 'first' => $first, 'last' => $last];
             if ($emailColumn !== null) { $insertColumns[] = $emailColumn; $insertValues[] = ':email'; $insertParams['email'] = $email ?: null; }
             if ($phoneColumn !== null) { $insertColumns[] = $phoneColumn; $insertValues[] = ':phone'; $insertParams['phone'] = $phone ?: null; }
+            if ($billingSchemaReady) foreach ($billingValues as $column => $value) { $insertColumns[] = $column; $insertValues[] = ':billing_' . $column; $insertParams['billing_' . $column] = $value; }
             $insert = $database->prepare('INSERT INTO klienten (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $insertValues) . ')');
             $insert->execute($insertParams);
             $message = 'Der Klient wurde angelegt.';
@@ -132,7 +155,7 @@ try {
     } elseif (isset($_GET['edit'])) {
         $id = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($id === false || (int) $id < 1) throw new InvalidArgumentException('Ungültige Klienten-ID.');
-        $query = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ', benutzer_id FROM klienten WHERE id = :id' . ($user['role'] === 'coach' ? ' AND benutzer_id = :owner' : ''));
+        $query = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ', ' . str_replace('k.', '', $billingSelect) . ', benutzer_id FROM klienten WHERE id = :id' . ($user['role'] === 'coach' ? ' AND benutzer_id = :owner' : ''));
         $params = ['id' => (int) $id];
         if ($user['role'] === 'coach') $params['owner'] = (int) $user['id'];
         $query->execute($params);
@@ -173,8 +196,15 @@ try {
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Klienten verwalten · Coaching Tool</title>
 <style>
-:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f302d;background:#f5f7f5}*{box-sizing:border-box}body{margin:0}.page{max-width:1080px;margin:auto;padding:24px clamp(18px,5vw,64px) 70px}.bar{display:flex;justify-content:space-between;align-items:center;padding:14px 0 22px;border-bottom:1px solid #e2e9e4}.brand{color:inherit;text-decoration:none;font-weight:700}.brand span{font-weight:400;color:#60716b}.back{color:#35695b}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.04em;margin:38px 0 8px}p{color:#65766f;line-height:1.55}.layout{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:20px;margin-top:26px}.card{background:white;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.card h2{font-size:18px;margin:0 0 18px}.form{display:grid;gap:10px}.form label{font-size:13px;font-weight:650;margin-top:6px}.form input,.form select{width:100%;border:1px solid #dce5df;border-radius:9px;padding:12px;font:inherit;background:white}.form input:focus,.form select:focus{outline:3px solid #a4c9b4}.button{display:inline-block;border:0;border-radius:9px;padding:12px 16px;background:#245c50;color:white;text-decoration:none;font:inherit;font-weight:650;cursor:pointer;margin-top:12px}.cancel{margin-left:8px;color:#35695b}.notice{padding:12px 14px;background:#edf5ef;color:#245c50;border-radius:9px}.error{padding:12px 14px;background:#fff3f1;color:#8c3434;border-radius:9px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #edf1ee;padding:12px 8px;vertical-align:top}th{font-size:12px;color:#65766f}td a{color:#35695b}.muted{font-size:12px;color:#74817c}footer{margin-top:26px;font-size:12px;color:#74817c}@media(max-width:760px){.layout{grid-template-columns:1fr}th,td{padding:10px 6px}.desktop{display:none}}
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f302d;background:#f5f7f5}*{box-sizing:border-box}body{margin:0}.page{max-width:1080px;margin:auto;padding:24px clamp(18px,5vw,64px) 70px}.bar{display:flex;justify-content:space-between;align-items:center;padding:14px 0 22px;border-bottom:1px solid #e2e9e4}.brand{color:inherit;text-decoration:none;font-weight:700}.brand span{font-weight:400;color:#60716b}.back{color:#35695b}h1{font-size:clamp(30px,5vw,48px);letter-spacing:-.04em;margin:38px 0 8px}p{color:#65766f;line-height:1.55}.layout{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:20px;margin-top:26px}.card{background:white;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.card h2{font-size:18px;margin:0 0 18px}.form{display:grid;gap:10px}.form label{font-size:13px;font-weight:650;margin-top:6px}.form input,.form select,.form textarea{width:100%;border:1px solid #dce5df;border-radius:9px;padding:12px;font:inherit;background:white}.form input[type=checkbox]{width:auto}.form textarea{min-height:90px;resize:vertical}fieldset.billing{border:1px solid #e1e9e3;border-radius:10px;padding:14px;display:grid;gap:8px}fieldset.billing legend{font-weight:700;padding:0 6px}.address-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.billing-toggle{display:flex;align-items:center;gap:8px;font-weight:600}.billing-toggle input{width:auto}.form input:focus,.form select:focus{outline:3px solid #a4c9b4}.button{display:inline-block;border:0;border-radius:9px;padding:12px 16px;background:#245c50;color:white;text-decoration:none;font:inherit;font-weight:650;cursor:pointer;margin-top:12px}.cancel{margin-left:8px;color:#35695b}.notice{padding:12px 14px;background:#edf5ef;color:#245c50;border-radius:9px}.error{padding:12px 14px;background:#fff3f1;color:#8c3434;border-radius:9px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #edf1ee;padding:12px 8px;vertical-align:top}th{font-size:12px;color:#65766f}td a{color:#35695b}.muted{font-size:12px;color:#74817c}footer{margin-top:26px;font-size:12px;color:#74817c}@media(max-width:760px){.layout{grid-template-columns:1fr}th,td{padding:10px 6px}.desktop{display:none}}
 </style><link rel="stylesheet" href="assets/layout.css"><script src="assets/layout.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const toggle = document.getElementById('rechnungsadresse_abweichend');
+    const fields = document.getElementById('billing-address-fields');
+    if (toggle && fields) toggle.addEventListener('change', function () { fields.hidden = !toggle.checked; });
+});
+</script>
 </head>
 <body class="has-app-sidebar">
 <?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($user, 'clients', $token); ?>
@@ -191,6 +221,26 @@ try {
 <label for="nachname">Nachname</label><input id="nachname" name="nachname" maxlength="100" required value="<?= h($values['nachname']) ?>">
 <?php if ($emailColumn !== null): ?><label for="email">E-Mail (optional)</label><input id="email" name="email" type="email" maxlength="190" value="<?= h($values['email'] ?? '') ?>"><?php endif; ?>
 <?php if ($phoneColumn !== null): ?><label for="telefon">Telefon (optional)</label><input id="telefon" name="telefon" type="tel" maxlength="40" value="<?= h($values['telefon'] ?? '') ?>"><?php endif; ?>
+<?php if ($billingSchemaReady): ?>
+<fieldset class="billing"><legend>Adresse</legend>
+<label for="adresse_strasse">Straße und Hausnummer</label><input id="adresse_strasse" name="adresse_strasse" maxlength="190" value="<?= h($values['adresse_strasse'] ?? '') ?>">
+<div class="address-grid"><div><label for="adresse_plz">Postleitzahl</label><input id="adresse_plz" name="adresse_plz" maxlength="20" value="<?= h($values['adresse_plz'] ?? '') ?>"></div><div><label for="adresse_ort">Ort</label><input id="adresse_ort" name="adresse_ort" maxlength="100" value="<?= h($values['adresse_ort'] ?? '') ?>"></div></div>
+<label for="adresse_land">Land</label><input id="adresse_land" name="adresse_land" maxlength="100" value="<?= h($values['adresse_land'] ?? '') ?>">
+</fieldset>
+<fieldset class="billing"><legend>Abrechnung</legend>
+<label for="kundennummer">Kunden- / Referenznummer (optional)</label><input id="kundennummer" name="kundennummer" maxlength="40" value="<?= h($values['kundennummer'] ?? '') ?>">
+<label for="stundensatz">Kosten pro Stunde in Euro</label><input id="stundensatz" name="stundensatz" type="number" min="0" max="99999999.99" step="0.01" value="<?= h($values['stundensatz'] ?? '') ?>" placeholder="z. B. 90,00">
+<label for="preisvereinbarung">Preisabsprachen / Abweichungen</label><textarea id="preisvereinbarung" name="preisvereinbarung" maxlength="5000" placeholder="z. B. Paketpreis, Sozialtarif, vereinbarte Rabatte oder Sonderbedingungen"><?= h($values['preisvereinbarung'] ?? '') ?></textarea>
+<label for="zahlungsziel_tage">Zahlungsziel in Tagen (optional)</label><input id="zahlungsziel_tage" name="zahlungsziel_tage" type="number" min="1" max="365" value="<?= h($values['zahlungsziel_tage'] ?? '') ?>">
+<label class="billing-toggle"><input id="rechnungsadresse_abweichend" name="rechnungsadresse_abweichend" type="checkbox" value="1" <?= !empty($values['rechnungsadresse_abweichend']) ? 'checked' : '' ?>> Rechnungsadresse weicht von der Klientenadresse ab</label>
+<div id="billing-address-fields" <?= empty($values['rechnungsadresse_abweichend']) ? 'hidden' : '' ?>>
+<label for="rechnung_empfaenger">Rechnungsempfänger / Firma</label><input id="rechnung_empfaenger" name="rechnung_empfaenger" maxlength="190" value="<?= h($values['rechnung_empfaenger'] ?? '') ?>">
+<label for="rechnung_email">E-Mail für Rechnungen (optional)</label><input id="rechnung_email" name="rechnung_email" type="email" maxlength="190" value="<?= h($values['rechnung_email'] ?? '') ?>">
+<label for="rechnung_strasse">Straße und Hausnummer</label><input id="rechnung_strasse" name="rechnung_strasse" maxlength="190" value="<?= h($values['rechnung_strasse'] ?? '') ?>">
+<div class="address-grid"><div><label for="rechnung_plz">Postleitzahl</label><input id="rechnung_plz" name="rechnung_plz" maxlength="20" value="<?= h($values['rechnung_plz'] ?? '') ?>"></div><div><label for="rechnung_ort">Ort</label><input id="rechnung_ort" name="rechnung_ort" maxlength="100" value="<?= h($values['rechnung_ort'] ?? '') ?>"></div></div>
+<label for="rechnung_land">Land</label><input id="rechnung_land" name="rechnung_land" maxlength="100" value="<?= h($values['rechnung_land'] ?? '') ?>">
+</div></fieldset>
+<?php else: ?><p class="muted">Adress- und Rechnungsdaten werden nach Import von <code>database/migrations/010_klienten_rechnungsdaten.sql</code> verfügbar.</p><?php endif; ?>
 <?php if ($isManager): ?><label for="benutzer_id">Zuständiger Coach</label><select id="benutzer_id" name="benutzer_id" required><option value="">Bitte auswählen</option><?php foreach ($owners as $owner): ?><option value="<?= h($owner['id']) ?>" <?= (int) $values['benutzer_id'] === (int) $owner['id'] ? 'selected' : '' ?>><?= h($owner['vorname'] . ' ' . $owner['nachname']) ?></option><?php endforeach; ?></select><?php elseif ($isAdmin && (int) $values['id'] > 0): ?><p class="muted">Coach-Wechsel sind nur mit einem Verwalterkonto möglich.</p><?php endif; ?>
 <button class="button" type="submit">Speichern</button><?php if ((int) $values['id'] > 0): ?><a class="cancel" href="clients.php">Abbrechen</a><?php endif; ?>
 </form></section>
