@@ -29,7 +29,7 @@ $error = '';
 $message = isset($_GET['created']) && $_GET['created'] === '1'
     ? 'Das aktive Coach-Konto wurde angelegt.'
     : (isset($_GET['saved']) && $_GET['saved'] === '1' ? 'Die Änderungen wurden gespeichert.' : '');
-$values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'username' => '', 'email' => '', 'aktiv' => 1];
+$values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'username' => '', 'email' => '', 'coach_kennung' => '', 'aktiv' => 1];
 $editing = false;
 
 if (isset($_GET['edit'])) {
@@ -37,11 +37,11 @@ if (isset($_GET['edit'])) {
     if ($editId === false || (int) $editId < 1) {
         $error = 'Ungültige Coach-ID.';
     } else {
-        $query = $database->prepare("SELECT id, vorname, nachname, benutzername, email, aktiv FROM benutzer WHERE id = :id AND rolle = 'coach' LIMIT 1");
+        $query = $database->prepare("SELECT id, vorname, nachname, benutzername, email, coach_kennung, aktiv FROM benutzer WHERE id = :id AND rolle = 'coach' LIMIT 1");
         $query->execute(['id' => (int) $editId]);
         $record = $query->fetch(PDO::FETCH_ASSOC);
         if ($record) {
-            $values = ['id' => (int) $record['id'], 'vorname' => $record['vorname'], 'nachname' => $record['nachname'], 'username' => $record['benutzername'], 'email' => $record['email'], 'aktiv' => (int) $record['aktiv']];
+            $values = ['id' => (int) $record['id'], 'vorname' => $record['vorname'], 'nachname' => $record['nachname'], 'username' => $record['benutzername'], 'email' => $record['email'], 'coach_kennung' => $record['coach_kennung'], 'aktiv' => (int) $record['aktiv']];
             $editing = true;
         } else {
             $error = 'Dieses Coach-Konto wurde nicht gefunden.';
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $lastName = trim(is_string($_POST['nachname'] ?? null) ? $_POST['nachname'] : '');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     $postedActive = isset($_POST['aktiv']) && $_POST['aktiv'] === '1' ? 1 : 0;
-    $values = ['id' => $id === false ? 0 : (int) $id, 'vorname' => $firstName, 'nachname' => $lastName, 'username' => $username, 'email' => $email, 'aktiv' => $id !== false && (int) $id > 0 ? $postedActive : 1];
+    $values = ['id' => $id === false ? 0 : (int) $id, 'vorname' => $firstName, 'nachname' => $lastName, 'username' => $username, 'email' => $email, 'coach_kennung' => trim(is_string($_POST['coach_kennung'] ?? null) ? $_POST['coach_kennung'] : ''), 'aktiv' => $id !== false && (int) $id > 0 ? $postedActive : 1];
     $editing = $id !== false && (int) $id > 0;
     $passwordValid = strlen($password) >= 8 && strlen($password) <= 4096
         && preg_match('/[^A-Za-z0-9]/', $password) === 1;
@@ -94,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
+            $database->beginTransaction();
             $insert = $database->prepare(
                 "INSERT INTO benutzer (benutzername, email, passwort_hash, vorname, nachname, rolle, aktiv)
                  VALUES (:username, :email, :password_hash, :first_name, :last_name, 'coach', 1)"
@@ -105,18 +106,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'first_name' => $firstName,
                 'last_name' => $lastName,
             ]);
+            $coachId = (int) $database->lastInsertId();
+            $coachCode = 'CO-' . str_pad((string) $coachId, 5, '0', STR_PAD_LEFT);
+            $codeUpdate = $database->prepare('UPDATE benutzer SET coach_kennung = :code WHERE id = :id AND rolle = \'coach\'');
+            $codeUpdate->execute(['code' => $coachCode, 'id' => $coachId]);
+            $database->commit();
             header('Location: coaches.php?created=1');
             exit;
         } catch (InvalidArgumentException $exception) {
             $error = $exception->getMessage();
         } catch (Throwable $exception) {
+            if ($database->inTransaction()) $database->rollBack();
             error_log('Coaching Tool coach save failed: ' . $exception->getMessage());
             $error = 'Das Konto konnte nicht gespeichert werden. Prüfe, ob Benutzername oder E-Mail bereits verwendet werden und ob der Datenbankbenutzer INSERT-/UPDATE-Rechte auf benutzer hat.';
         }
     }
 }
 
-$list = $database->query("SELECT id, vorname, nachname, benutzername, email, aktiv FROM benutzer WHERE rolle = 'coach' ORDER BY aktiv DESC, nachname, vorname");
+$list = $database->query("SELECT id, vorname, nachname, benutzername, email, coach_kennung, aktiv FROM benutzer WHERE rolle = 'coach' ORDER BY aktiv DESC, nachname, vorname");
 $coaches = $list->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
@@ -142,10 +149,11 @@ $coaches = $list->fetchAll(PDO::FETCH_ASSOC);
 <label for="nachname">Nachname</label><input id="nachname" name="nachname" maxlength="100" required value="<?= coachH($values['nachname']) ?>">
 <label for="username">Benutzername</label><input id="username" name="username" maxlength="50" autocomplete="username" required value="<?= coachH($values['username']) ?>">
 <label for="email">E-Mail</label><input id="email" name="email" type="email" maxlength="190" required value="<?= coachH($values['email']) ?>">
+<?php if ($editing): ?><label for="coach_kennung">Coach-Kennung</label><input id="coach_kennung" name="coach_kennung" value="<?= coachH($values['coach_kennung'] ?? '') ?>" readonly><span class="muted">Diese Kennung ist dauerhaft und erscheint später auf Rechnungen.</span><?php else: ?><span class="muted">Eine dauerhafte Coach-Kennung wird nach dem Anlegen automatisch vergeben.</span><?php endif; ?>
 <label for="password"><?= $editing ? 'Neues Passwort (optional)' : 'Startpasswort (mindestens 8 Zeichen und ein Sonderzeichen)' ?></label><input id="password" name="password" type="password" minlength="8" pattern="(?=.*[^A-Za-z0-9]).{8,}" title="Mindestens 8 Zeichen und mindestens ein Sonderzeichen." autocomplete="new-password" <?= $editing ? '' : 'required' ?>><?php if ($editing): ?><span class="muted">Leer lassen, wenn das Passwort gleich bleiben soll.</span><?php endif; ?>
 <?php if ($editing): ?><label class="check-label"><input type="checkbox" name="aktiv" value="1" <?= (int) $values['aktiv'] === 1 ? 'checked' : '' ?>> Konto aktiv</label><?php endif; ?>
 <button class="button" type="submit"><?= $editing ? 'Änderungen speichern' : 'Aktives Coach-Konto anlegen' ?></button><?php if ($editing): ?><a class="back" href="coaches.php">Abbrechen</a><?php endif; ?>
 </form></section>
-<section class="card"><h2>Coach-Konten (<?= count($coaches) ?>)</h2><?php if ($coaches === []): ?><p>Noch keine Coach-Konten vorhanden.</p><?php else: ?><ul><?php foreach ($coaches as $coach): ?><li class="coach-row"><div><strong><?= coachH($coach['vorname'] . ' ' . $coach['nachname']) ?></strong><span class="muted"><?= coachH($coach['benutzername']) ?> · <?= coachH($coach['email']) ?> · <?= (int) $coach['aktiv'] === 1 ? 'Aktiv' : 'Inaktiv' ?></span></div><a href="coaches.php?edit=<?= coachH($coach['id']) ?>">Bearbeiten</a></li><?php endforeach; ?></ul><?php endif; ?></section></div>
+<section class="card"><h2>Coach-Konten (<?= count($coaches) ?>)</h2><?php if ($coaches === []): ?><p>Noch keine Coach-Konten vorhanden.</p><?php else: ?><ul><?php foreach ($coaches as $coach): ?><li class="coach-row"><div><strong><?= coachH($coach['vorname'] . ' ' . $coach['nachname']) ?></strong><span class="muted"><?= coachH($coach['coach_kennung']) ?> · <?= coachH($coach['benutzername']) ?> · <?= coachH($coach['email']) ?> · <?= (int) $coach['aktiv'] === 1 ? 'Aktiv' : 'Inaktiv' ?></span></div><a href="coaches.php?edit=<?= coachH($coach['id']) ?>">Bearbeiten</a></li><?php endforeach; ?></ul><?php endif; ?></section></div>
 <a class="back" href="clients.php">Zurück zu Klienten und Coach-Zuordnung</a>
 </main></body></html>
