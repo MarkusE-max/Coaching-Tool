@@ -80,7 +80,7 @@ try {
         $phone = trim(is_string($_POST['telefon'] ?? null) ? $_POST['telefon'] : '');
 $billingValues = [];
 if ($billingSchemaReady) {
-    $billingTextFields = ['adresse_strasse','adresse_plz','adresse_ort','adresse_land','rechnung_empfaenger','rechnung_strasse','rechnung_plz','rechnung_ort','rechnung_land','rechnung_email','kundennummer','preisvereinbarung'];
+    $billingTextFields = ['adresse_strasse','adresse_plz','adresse_ort','adresse_land','rechnung_empfaenger','rechnung_strasse','rechnung_plz','rechnung_ort','rechnung_land','rechnung_email','preisvereinbarung'];
     foreach ($billingTextFields as $field) $billingValues[$field] = trim(is_string($_POST[$field] ?? null) ? $_POST[$field] : '');
     $billingValues['rechnungsadresse_abweichend'] = (($_POST['rechnungsadresse_abweichend'] ?? '') === '1') ? 1 : 0;
     $rateInput = trim(is_string($_POST['stundensatz'] ?? null) ? $_POST['stundensatz'] : '');
@@ -148,9 +148,17 @@ if ($billingSchemaReady) {
             if ($emailColumn !== null) { $insertColumns[] = $emailColumn; $insertValues[] = ':email'; $insertParams['email'] = $email ?: null; }
             if ($phoneColumn !== null) { $insertColumns[] = $phoneColumn; $insertValues[] = ':phone'; $insertParams['phone'] = $phone ?: null; }
             if ($billingSchemaReady) foreach ($billingValues as $column => $value) { $insertColumns[] = $column; $insertValues[] = ':billing_' . $column; $insertParams['billing_' . $column] = $value; }
+            $database->beginTransaction();
             $insert = $database->prepare('INSERT INTO klienten (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $insertValues) . ')');
             $insert->execute($insertParams);
-            $message = 'Der Klient wurde angelegt.';
+            $newClientId = (int) $database->lastInsertId();
+            if (in_array('kundennummer', $clientColumns, true)) {
+                $customerNumber = 'KL-' . str_pad((string) $newClientId, 6, '0', STR_PAD_LEFT);
+                $numberUpdate = $database->prepare("UPDATE klienten SET kundennummer = :number WHERE id = :id AND (kundennummer IS NULL OR TRIM(kundennummer) = '')");
+                $numberUpdate->execute(['number' => $customerNumber, 'id' => $newClientId]);
+            }
+            $database->commit();
+            $message = 'Der Klient wurde mit einer dauerhaften Kundennummer angelegt.';
         }
         $values = ['id'=>0,'vorname'=>'','nachname'=>'','email'=>'','telefon'=>'','benutzer_id'=>(int)$user['id'],'adresse_strasse'=>'','adresse_plz'=>'','adresse_ort'=>'','adresse_land'=>'','rechnungsadresse_abweichend'=>0,'rechnung_empfaenger'=>'','rechnung_strasse'=>'','rechnung_plz'=>'','rechnung_ort'=>'','rechnung_land'=>'','rechnung_email'=>'','kundennummer'=>'','stundensatz'=>'','preisvereinbarung'=>'','zahlungsziel_tage'=>''];
     } elseif (isset($_GET['edit'])) {
@@ -178,9 +186,9 @@ try {
     $owners = $ownerQuery ? $ownerQuery->fetchAll(PDO::FETCH_ASSOC) : [];
     if ($isManager && $owners === []) $error = 'Es gibt kein aktives Coach-Konto. Lege zuerst eines über Coach-Konten verwalten an.';
     if ($canSeeAllClients) {
-        $listQuery = $database->query('SELECT k.id, k.vorname, k.nachname, ' . $emailSelect . ', ' . $phoneSelect . ', k.benutzer_id, b.vorname AS coach_vorname, b.nachname AS coach_nachname FROM klienten k LEFT JOIN benutzer b ON b.id = k.benutzer_id ORDER BY k.nachname, k.vorname LIMIT 200');
+        $listQuery = $database->query('SELECT k.id, k.vorname, k.nachname, ' . $emailSelect . ', ' . $phoneSelect . ', ' . (in_array('kundennummer', $clientColumns, true) ? 'k.kundennummer' : 'NULL AS kundennummer') . ', k.benutzer_id, b.vorname AS coach_vorname, b.nachname AS coach_nachname FROM klienten k LEFT JOIN benutzer b ON b.id = k.benutzer_id ORDER BY k.nachname, k.vorname LIMIT 200');
     } else {
-        $listQuery = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ' FROM klienten WHERE benutzer_id = :owner ORDER BY nachname, vorname LIMIT 200');
+        $listQuery = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ', ' . (in_array('kundennummer', $clientColumns, true) ? 'kundennummer' : 'NULL AS kundennummer') . ' FROM klienten WHERE benutzer_id = :owner ORDER BY nachname, vorname LIMIT 200');
         $listQuery->execute(['owner' => (int) $user['id']]);
     }
     $clients = $listQuery->fetchAll(PDO::FETCH_ASSOC);
@@ -220,6 +228,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <input type="hidden" name="csrf_token" value="<?= h($token) ?>"><input type="hidden" name="id" value="<?= h((int) $values['id']) ?>">
 <label for="vorname">Vorname</label><input id="vorname" name="vorname" maxlength="100" required value="<?= h($values['vorname']) ?>">
 <label for="nachname">Nachname</label><input id="nachname" name="nachname" maxlength="100" required value="<?= h($values['nachname']) ?>">
+<?php if ($billingSchemaReady): ?><label for="kundennummer">Dauerhafte Kundennummer</label><input id="kundennummer" value="<?= h($values['kundennummer'] ?? 'Wird nach dem Anlegen vergeben') ?>" readonly><span class="muted">Die Kennung bleibt gleich, auch wenn später ein neuer Coaching-Auftrag angelegt wird.</span><?php endif; ?>
 <?php if ($emailColumn !== null): ?><label for="email">E-Mail (optional)</label><input id="email" name="email" type="email" maxlength="190" value="<?= h($values['email'] ?? '') ?>"><?php endif; ?>
 <?php if ($phoneColumn !== null): ?><label for="telefon">Telefon (optional)</label><input id="telefon" name="telefon" type="tel" maxlength="40" value="<?= h($values['telefon'] ?? '') ?>"><?php endif; ?>
 <?php if ($billingSchemaReady): ?>
@@ -245,5 +254,5 @@ document.addEventListener('DOMContentLoaded', function () {
 <?php if ($isManager): ?><label for="benutzer_id">Zuständiger Coach</label><select id="benutzer_id" name="benutzer_id" required><option value="">Bitte auswählen</option><?php foreach ($owners as $owner): ?><option value="<?= h($owner['id']) ?>" <?= (int) $values['benutzer_id'] === (int) $owner['id'] ? 'selected' : '' ?>><?= h($owner['vorname'] . ' ' . $owner['nachname']) ?></option><?php endforeach; ?></select><?php elseif ($isAdmin && (int) $values['id'] > 0): ?><p class="muted">Coach-Wechsel sind nur mit einem Verwalterkonto möglich.</p><?php endif; ?>
 <button class="button" type="submit">Speichern</button><?php if ((int) $values['id'] > 0): ?><a class="cancel" href="clients.php">Abbrechen</a><?php endif; ?>
 </form></section>
-<section class="card"><h2>Klienten (<?= count($clients) ?>)</h2><?php if (!$clients): ?><p>Noch keine Klienten eingetragen.</p><?php else: ?><div class="table-wrap"><table><thead><tr><th>Name</th><th>Kontakt</th><?php if ($canSeeAllClients): ?><th>Coach</th><?php endif; ?><th></th></tr></thead><tbody><?php foreach ($clients as $client): ?><tr><td><?= h($client['vorname'] . ' ' . $client['nachname']) ?></td><td><?= h($client['email'] ?? '') ?><?php if (!empty($client['telefon'])): ?><br><span class="muted"><?= h($client['telefon']) ?></span><?php endif; ?></td><?php if ($canSeeAllClients): ?><td><?= h(trim(($client['coach_vorname'] ?? '') . ' ' . ($client['coach_nachname'] ?? ''))) ?></td><?php endif; ?><td><?php if (!$isManager): ?><a href="client-overview.php?id=<?= h($client['id']) ?>">Übersicht</a> · <?php endif; ?><a href="clients.php?edit=<?= h($client['id']) ?>">Bearbeiten</a></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></section></div>
+<section class="card"><h2>Klienten (<?= count($clients) ?>)</h2><?php if (!$clients): ?><p>Noch keine Klienten eingetragen.</p><?php else: ?><div class="table-wrap"><table><thead><tr><th>Name</th><th>Kontakt</th><?php if ($canSeeAllClients): ?><th>Coach</th><?php endif; ?><th></th></tr></thead><tbody><?php foreach ($clients as $client): ?><tr><td><?= h($client['vorname'] . ' ' . $client['nachname']) ?><?php if ($billingSchemaReady && !empty($client['kundennummer'])): ?><br><span class="muted">Kundennr. <?= h($client['kundennummer']) ?></span><?php endif; ?></td><td><?= h($client['email'] ?? '') ?><?php if (!empty($client['telefon'])): ?><br><span class="muted"><?= h($client['telefon']) ?></span><?php endif; ?></td><?php if ($canSeeAllClients): ?><td><?= h(trim(($client['coach_vorname'] ?? '') . ' ' . ($client['coach_nachname'] ?? ''))) ?></td><?php endif; ?><td><?php if (!$isManager): ?><a href="client-overview.php?id=<?= h($client['id']) ?>">Übersicht</a> · <?php endif; ?><a href="clients.php?edit=<?= h($client['id']) ?>">Bearbeiten</a></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></section></div>
 <footer>Privater Bereich · Klientendaten sind nur für berechtigte Zugänge sichtbar</footer></main></body></html>
