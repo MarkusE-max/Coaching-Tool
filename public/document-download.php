@@ -44,14 +44,14 @@ try {
         $query->execute(['id' => (int) $id, 'coach' => $coachId]);
     } elseif ($type === 'assigned-template') {
         if ($isClient) {
-            $query = $database->prepare("SELECT d.vorlage_speicher_schluessel AS speicher_schluessel, d.vorlage_originalname AS originalname, v.mime_typ FROM coaching_klientendokumente d INNER JOIN klienten k ON k.id=d.klient_id INNER JOIN coaching_dokumentvorlagen v ON v.id=d.vorlage_id AND v.coach_benutzer_id=d.coach_benutzer_id WHERE d.id=:id AND d.klient_id=:client AND d.status IN ('zugewiesen','ausgegeben','zurueckgekommen')");
+            $query = $database->prepare("SELECT d.vorlage_speicher_schluessel AS speicher_schluessel, d.vorlage_originalname AS originalname, v.mime_typ FROM coaching_klientendokumente d INNER JOIN klienten k ON k.id=d.klient_id INNER JOIN coaching_dokumentvorlagen v ON v.id=d.vorlage_id AND v.coach_benutzer_id=d.coach_benutzer_id INNER JOIN coaching_auftraege a ON a.id=d.auftrag_id AND a.klient_id=d.klient_id WHERE d.id=:id AND d.klient_id=:client AND d.status IN ('zugewiesen','ausgegeben','zurueckgekommen') AND (a.status='aktiv' OR (a.status='abgeschlossen' AND a.archiv_freigegeben=1))");
             $query->execute(['id'=>(int)$id,'client'=>$clientId]);
         } else {
             $query = $database->prepare('SELECT d.vorlage_speicher_schluessel AS speicher_schluessel, d.vorlage_originalname AS originalname, v.mime_typ FROM coaching_klientendokumente d INNER JOIN klienten k ON k.id = d.klient_id INNER JOIN coaching_dokumentvorlagen v ON v.id = d.vorlage_id AND v.coach_benutzer_id = d.coach_benutzer_id WHERE d.id = :id AND d.coach_benutzer_id = :coach AND k.benutzer_id = :client_owner');
             $query->execute(['id' => (int) $id, 'coach' => $coachId, 'client_owner' => $coachId]);
         }
     } elseif ($type === 'return' && $isClient) {
-        $query = $database->prepare("SELECT f.speicher_schluessel,f.originalname,f.mime_typ FROM coaching_dokumentdateien f INNER JOIN coaching_klientendokumente d ON d.id=f.klientendokument_id AND d.coach_benutzer_id=f.coach_benutzer_id WHERE f.id=:id AND d.klient_id=:client AND d.status IN ('zugewiesen','ausgegeben','zurueckgekommen')");
+        $query = $database->prepare("SELECT f.speicher_schluessel,f.originalname,f.mime_typ FROM coaching_dokumentdateien f INNER JOIN coaching_klientendokumente d ON d.id=f.klientendokument_id AND d.coach_benutzer_id=f.coach_benutzer_id INNER JOIN coaching_auftraege a ON a.id=d.auftrag_id AND a.klient_id=d.klient_id WHERE f.id=:id AND d.klient_id=:client AND d.status IN ('zugewiesen','ausgegeben','zurueckgekommen') AND (a.status='aktiv' OR (a.status='abgeschlossen' AND a.archiv_freigegeben=1))");
         $query->execute(['id'=>(int)$id,'client'=>$clientId]);
     } elseif ($type === 'return') {
         $query = $database->prepare('SELECT f.speicher_schluessel, f.originalname, f.mime_typ FROM coaching_dokumentdateien f INNER JOIN coaching_klientendokumente d ON d.id = f.klientendokument_id AND d.coach_benutzer_id = f.coach_benutzer_id INNER JOIN klienten k ON k.id = d.klient_id WHERE f.id = :id AND f.coach_benutzer_id = :coach AND d.coach_benutzer_id = :document_owner AND k.benutzer_id = :client_owner');
