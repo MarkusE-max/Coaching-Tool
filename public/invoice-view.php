@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
+date_default_timezone_set('Europe/Berlin');
 $isHttps=isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!==''&&$_SERVER['HTTPS']!=='off';ini_set('session.use_strict_mode','1');session_name('coaching_tool_session');session_set_cookie_params(['httponly'=>true,'secure'=>$isHttps,'samesite'=>'Strict','path'=>'/']);session_start();header('Cache-Control: no-store, private');
 require_once dirname(__DIR__).'/app/bootstrap.php';
 function invoiceViewH(string|int|float|null $v):string{return htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 function invoiceViewText(string|null $text,array $values):string{$expanded=str_replace(array_keys($values),array_values($values),$text??'');return nl2br(invoiceViewH($expanded));}
 $user=$_SESSION['user']??null;if(!is_array($user)||($user['role']??'')!=='coach'){http_response_code(403);exit('Kein Zugriff.');}
-$db=coachingDatabase();$id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT)?:0;$q=$db->prepare('SELECT r.*,k.vorname,k.nachname,a.titel AS auftrag_titel FROM coaching_rechnungen r INNER JOIN klienten k ON k.id=r.klient_id INNER JOIN coaching_auftraege a ON a.id=r.auftrag_id WHERE r.id=:id AND r.coach_benutzer_id=:coach AND k.benutzer_id=:owner');$q->execute(['id'=>$id,'coach'=>(int)$user['id'],'owner'=>(int)$user['id']]);$invoice=$q->fetch(PDO::FETCH_ASSOC);if(!$invoice){http_response_code(404);exit('Rechnung nicht gefunden.');}
+$db=coachingDatabase();$id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT)?:0;$q=$db->prepare('SELECT r.*,k.vorname,k.nachname FROM coaching_rechnungen r INNER JOIN klienten k ON k.id=r.klient_id WHERE r.id=:id AND r.coach_benutzer_id=:coach AND k.benutzer_id=:owner');$q->execute(['id'=>$id,'coach'=>(int)$user['id'],'owner'=>(int)$user['id']]);$invoice=$q->fetch(PDO::FETCH_ASSOC);if(!$invoice){http_response_code(404);exit('Rechnung nicht gefunden.');}
 $values=['{{coach_name}}'=>$invoice['absender_name'],'{{klient_name}}'=>$invoice['empfaenger_name'],'{{auftrag}}'=>$invoice['auftrag_titel'],'{{sitzungsdatum}}'=>date('d.m.Y H:i',strtotime($invoice['sitzung_beginn'])),'{{rechnungsnummer}}'=>$invoice['rechnungsnummer']??'Entwurf','{{rechnungsdatum}}'=>$invoice['rechnungsdatum']?date('d.m.Y',strtotime($invoice['rechnungsdatum'])):'','{{nettobetrag}}'=>number_format((float)$invoice['netto'],2,',','.'),'{{steuerbetrag}}'=>number_format((float)$invoice['steuerbetrag'],2,',','.'),'{{bruttobetrag}}'=>number_format((float)$invoice['brutto'],2,',','.')];
 $fromAddress=(string)($invoice['absender_adresse']??'');$toAddress=(string)($invoice['empfaenger_adresse']??'');
 ?>
