@@ -52,7 +52,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    if($action==='issue'){
     $settingsQ=$db->prepare('SELECT barzahlung_aktiv,zahlungsziel_tage FROM coaching_rechnungseinstellungen WHERE coach_benutzer_id=:coach');$settingsQ->execute(['coach'=>$coach]);$settings=$settingsQ->fetch(PDO::FETCH_ASSOC)?:[];
     if($payment==='bar'&&(int)($settings['barzahlung_aktiv']??0)!==1)throw new InvalidArgumentException('Barzahlung ist in den Rechnungseinstellungen nicht aktiviert.');
-    $today=date('Y-m-d');$dueDays=isset($invoice['faellig_am'])?0:(int)($settings['zahlungsziel_tage']??14);
+    $today=date('Y-m-d');$dueDays=(int)($settings['zahlungsziel_tage']??14);
     $query=$db->prepare('SELECT zahlungsziel_tage FROM klienten WHERE id=:client AND benutzer_id=:coach');$query->execute(['client'=>(int)$invoice['klient_id'],'coach'=>$coach]);$clientDue=$query->fetchColumn();if($clientDue!==false&&$clientDue!==null)$dueDays=(int)$clientDue;else $dueDays=(int)($settings['zahlungsziel_tage']??14);
     $due=(new DateTimeImmutable($today))->modify('+'.$dueDays.' days')->format('Y-m-d');
     $invoiceNumber='R-'.$today.'-'.str_pad((string)$id,6,'0',STR_PAD_LEFT);
