@@ -58,6 +58,8 @@ CREATE TABLE coaching_rechnungen (
  klient_id BIGINT UNSIGNED NOT NULL,
  auftrag_id BIGINT UNSIGNED NOT NULL,
  termin_id BIGINT UNSIGNED NOT NULL,
+ vorlage_id BIGINT UNSIGNED NULL,
+ auftrag_titel VARCHAR(190) NOT NULL,
  rechnungsnummer VARCHAR(50) NULL,
  status ENUM('entwurf','gestellt','bezahlt','storniert') NOT NULL DEFAULT 'entwurf',
  rechnungsdatum DATE NULL,
