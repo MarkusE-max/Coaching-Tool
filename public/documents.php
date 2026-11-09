@@ -82,14 +82,15 @@ try {
             $clientCheck = $database->prepare('SELECT id FROM klienten WHERE id = :client AND benutzer_id = :coach');
             $clientCheck->execute(['client' => (int) $clientId, 'coach' => $coachId]);
             if (!$clientCheck->fetchColumn()) throw new InvalidArgumentException('Der Klient gehört nicht zu deinem Zugang.');
+            $engagementId = coachingActiveEngagementId($database, (int) $clientId);
 
             $templateQuery = $database->prepare('SELECT id, titel, version, originalname, speicher_schluessel FROM coaching_dokumentvorlagen WHERE id = :id AND coach_benutzer_id = :coach AND aktiv = 1');
             $templateQuery->execute(['id' => (int) $templateId, 'coach' => $coachId]);
             $template = $templateQuery->fetch(PDO::FETCH_ASSOC);
             if (!$template) throw new InvalidArgumentException('Die Vorlage wurde nicht gefunden oder ist nicht mehr aktiv.');
 
-            $insert = $database->prepare("INSERT INTO coaching_klientendokumente (klient_id, coach_benutzer_id, vorlage_id, vorlage_version, vorlage_speicher_schluessel, vorlage_originalname, titel, status) VALUES (:client, :coach, :template, :version, :key, :name, :title, 'zugewiesen')");
-            $insert->execute(['client' => (int) $clientId, 'coach' => $coachId, 'template' => $template['id'], 'version' => $template['version'], 'key' => $template['speicher_schluessel'], 'name' => $template['originalname'], 'title' => $template['titel']]);
+            $insert = $database->prepare("INSERT INTO coaching_klientendokumente (klient_id, coach_benutzer_id, auftrag_id, vorlage_id, vorlage_version, vorlage_speicher_schluessel, vorlage_originalname, titel, status) VALUES (:client, :coach, :engagement, :template, :version, :key, :name, :title, 'zugewiesen')");
+            $insert->execute(['client' => (int) $clientId, 'coach' => $coachId, 'engagement' => $engagementId, 'template' => $template['id'], 'version' => $template['version'], 'key' => $template['speicher_schluessel'], 'name' => $template['originalname'], 'title' => $template['titel']]);
             header('Location: documents.php?klient_id=' . (int) $clientId . '&saved=1');
             exit;
         }
@@ -97,7 +98,7 @@ try {
         if ($action === 'mark_issued') {
             $documentId = filter_var($_POST['dokument_id'] ?? null, FILTER_VALIDATE_INT);
             if ($documentId === false || (int) $documentId < 1) throw new InvalidArgumentException('Ungültige Dokumentenzuweisung.');
-            $update = $database->prepare("UPDATE coaching_klientendokumente SET status = 'ausgegeben', ausgegeben_am = COALESCE(ausgegeben_am, CURRENT_TIMESTAMP) WHERE id = :id AND coach_benutzer_id = :coach AND status IN ('zugewiesen', 'ausgegeben')");
+            $update = $database->prepare("UPDATE coaching_klientendokumente d INNER JOIN coaching_auftraege a ON a.id=d.auftrag_id AND a.status='aktiv' SET d.status = 'ausgegeben', d.ausgegeben_am = COALESCE(d.ausgegeben_am, CURRENT_TIMESTAMP) WHERE d.id = :id AND d.coach_benutzer_id = :coach AND d.status IN ('zugewiesen', 'ausgegeben')");
             $update->execute(['id' => (int) $documentId, 'coach' => $coachId]);
             if ($update->rowCount() < 1) throw new InvalidArgumentException('Die Zuweisung wurde nicht gefunden oder ist bereits zurückgekommen.');
             header('Location: documents.php?saved=1');
@@ -107,7 +108,7 @@ try {
         if ($action === 'upload_return') {
             $documentId = filter_var($_POST['dokument_id'] ?? null, FILTER_VALIDATE_INT);
             if ($documentId === false || (int) $documentId < 1) throw new InvalidArgumentException('Ungültige Dokumentenzuweisung.');
-            $check = $database->prepare("SELECT id FROM coaching_klientendokumente WHERE id = :id AND coach_benutzer_id = :coach AND status <> 'archiviert'");
+            $check = $database->prepare("SELECT d.id FROM coaching_klientendokumente d INNER JOIN coaching_auftraege a ON a.id=d.auftrag_id AND a.status='aktiv' WHERE d.id = :id AND d.coach_benutzer_id = :coach AND d.status <> 'archiviert'");
             $check->execute(['id' => (int) $documentId, 'coach' => $coachId]);
             if (!$check->fetchColumn()) throw new InvalidArgumentException('Die Dokumentenzuweisung wurde nicht gefunden.');
             $file = coachingStoreDocumentUpload($_FILES['datei'] ?? [], ['application/pdf', 'image/jpeg', 'image/png']);
@@ -118,7 +119,7 @@ try {
                 $version = (int) $versionQuery->fetchColumn();
                 $insert = $database->prepare('INSERT INTO coaching_dokumentdateien (klientendokument_id, coach_benutzer_id, speicher_schluessel, originalname, mime_typ, groesse_bytes, version) VALUES (:document, :coach, :key, :name, :mime, :size, :version)');
                 $insert->execute(['document' => (int) $documentId, 'coach' => $coachId, 'key' => $file['key'], 'name' => $file['name'], 'mime' => $file['mime'], 'size' => $file['size'], 'version' => $version]);
-                $update = $database->prepare("UPDATE coaching_klientendokumente SET status = 'zurueckgekommen' WHERE id = :id AND coach_benutzer_id = :coach AND status <> 'archiviert'");
+                $update = $database->prepare("UPDATE coaching_klientendokumente d INNER JOIN coaching_auftraege a ON a.id=d.auftrag_id AND a.status='aktiv' SET d.status = 'zurueckgekommen' WHERE d.id = :id AND d.coach_benutzer_id = :coach AND d.status <> 'archiviert'");
                 $update->execute(['id' => (int) $documentId, 'coach' => $coachId]);
                 if ($update->rowCount() < 1) throw new RuntimeException('Die Dokumentenzuweisung konnte nicht aktualisiert werden.');
                 $database->commit();
@@ -136,7 +137,7 @@ try {
             if (!$isHttps) throw new InvalidArgumentException('Für QR-Unterschriften musst du das Coaching Tool über HTTPS öffnen.');
             $documentId = filter_var($_POST['dokument_id'] ?? null, FILTER_VALIDATE_INT);
             if ($documentId === false || (int) $documentId < 1) throw new InvalidArgumentException('Ungültige Dokumentenzuweisung.');
-            $documentQuery = $database->prepare("SELECT d.id, d.status, d.titel, v.mime_typ FROM coaching_klientendokumente d INNER JOIN klienten k ON k.id = d.klient_id INNER JOIN coaching_dokumentvorlagen v ON v.id = d.vorlage_id AND v.coach_benutzer_id = d.coach_benutzer_id WHERE d.id = :id AND d.coach_benutzer_id = :coach AND k.benutzer_id = :client_owner AND d.status IN ('zugewiesen', 'ausgegeben')");
+            $documentQuery = $database->prepare("SELECT d.id, d.status, d.titel, v.mime_typ FROM coaching_klientendokumente d INNER JOIN klienten k ON k.id = d.klient_id INNER JOIN coaching_auftraege a ON a.id=d.auftrag_id AND a.status='aktiv' INNER JOIN coaching_dokumentvorlagen v ON v.id = d.vorlage_id AND v.coach_benutzer_id = d.coach_benutzer_id WHERE d.id = :id AND d.coach_benutzer_id = :coach AND k.benutzer_id = :client_owner AND d.status IN ('zugewiesen', 'ausgegeben')");
             $documentQuery->execute(['id' => (int) $documentId, 'coach' => $coachId, 'client_owner' => $coachId]);
             $signDocument = $documentQuery->fetch(PDO::FETCH_ASSOC);
             if (!$signDocument || $signDocument['mime_typ'] !== 'application/pdf') {
@@ -205,13 +206,13 @@ $templatesQuery = $database->prepare('SELECT id, titel, kategorie, version, orig
 $templatesQuery->execute(['coach' => $coachId]);
 $templates = $templatesQuery->fetchAll(PDO::FETCH_ASSOC);
 
-$assignedQuery = $database->prepare('SELECT d.id, d.klient_id, d.titel, d.vorlage_version, d.status, d.zugewiesen_am, d.ausgegeben_am, k.vorname, k.nachname FROM coaching_klientendokumente d INNER JOIN klienten k ON k.id = d.klient_id WHERE d.coach_benutzer_id = :coach AND k.benutzer_id = :client_owner' . ($selectedClient > 0 ? ' AND d.klient_id = :selected_client' : '') . ' ORDER BY d.zugewiesen_am DESC LIMIT 300');
+$assignedQuery = $database->prepare('SELECT d.id, d.klient_id, d.titel, d.vorlage_version, d.status, d.zugewiesen_am, d.ausgegeben_am, k.vorname, k.nachname FROM coaching_klientendokumente d INNER JOIN klienten k ON k.id = d.klient_id INNER JOIN coaching_auftraege a ON a.id=d.auftrag_id WHERE d.coach_benutzer_id = :coach AND k.benutzer_id = :client_owner AND a.status=\'aktiv\'' . ($selectedClient > 0 ? ' AND d.klient_id = :selected_client' : '') . ' ORDER BY d.zugewiesen_am DESC LIMIT 300');
 $assignedParams = ['coach' => $coachId, 'client_owner' => $coachId];
 if ($selectedClient > 0) $assignedParams['selected_client'] = $selectedClient;
 $assignedQuery->execute($assignedParams);
 $assignments = $assignedQuery->fetchAll(PDO::FETCH_ASSOC);
 
-$fileQuery = $database->prepare('SELECT id, klientendokument_id, originalname, mime_typ, groesse_bytes, version, hochgeladen_am FROM coaching_dokumentdateien WHERE coach_benutzer_id = :coach ORDER BY klientendokument_id, version DESC');
+$fileQuery = $database->prepare('SELECT f.id, f.klientendokument_id, f.originalname, f.mime_typ, f.groesse_bytes, f.version, f.hochgeladen_am FROM coaching_dokumentdateien f INNER JOIN coaching_klientendokumente d ON d.id=f.klientendokument_id INNER JOIN coaching_auftraege a ON a.id=d.auftrag_id WHERE f.coach_benutzer_id = :coach AND a.status=\'aktiv\' ORDER BY klientendokument_id, version DESC');
 $fileQuery->execute(['coach' => $coachId]);
 $filesByDocument = [];
 foreach ($fileQuery->fetchAll(PDO::FETCH_ASSOC) as $file) $filesByDocument[(int) $file['klientendokument_id']][] = $file;
