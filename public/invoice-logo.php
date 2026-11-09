@@ -1,0 +1,7 @@
+<?php
+declare(strict_types=1);
+$isHttps=isset($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!==''&&$_SERVER['HTTPS']!=='off';ini_set('session.use_strict_mode','1');session_name('coaching_tool_session');session_set_cookie_params(['httponly'=>true,'secure'=>$isHttps,'samesite'=>'Strict','path'=>'/']);session_start();header('Cache-Control: private, no-store, max-age=0');header('X-Content-Type-Options: nosniff');
+require_once dirname(__DIR__).'/app/bootstrap.php';require_once dirname(__DIR__).'/app/document_storage.php';
+$user=$_SESSION['user']??null;if(!is_array($user)||($user['role']??'')!=='coach'){http_response_code(403);exit('Kein Zugriff.');}
+$id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT)?:0;
+try{$db=coachingDatabase();$q=$db->prepare('SELECT logo_speicher_schluessel,logo_mime FROM coaching_rechnungen WHERE id=:id AND coach_benutzer_id=:coach');$q->execute(['id'=>$id,'coach'=>(int)$user['id']]);$logo=$q->fetch(PDO::FETCH_ASSOC);if(!$logo||!in_array($logo['logo_mime'],['image/jpeg','image/png'],true)){http_response_code(404);exit('Logo nicht gefunden.');}$path=coachingResolveDocumentFile((string)$logo['logo_speicher_schluessel'],(string)$logo['logo_mime']);header('Content-Type: '.$logo['logo_mime']);header('Content-Length: '.(string)filesize($path));header('Content-Disposition: inline; filename="rechnungslogo"');readfile($path);exit;}catch(Throwable $e){error_log('Invoice logo access failed: '.$e->getMessage());http_response_code(404);exit('Logo nicht gefunden.');}
