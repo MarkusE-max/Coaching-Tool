@@ -68,7 +68,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }
   throw new InvalidArgumentException('Unbekannte Aktion.');
  }catch(InvalidArgumentException $e){if($db->inTransaction())$db->rollBack();$error=$e->getMessage();}
- catch(Throwable $e){if($db->inTransaction())$db->rollBack();error_log('Invoice operation failed: '.$e->getMessage());$error='Rechnung konnte nicht gespeichert werden. Prüfe Migration 013 und die Tabellenrechte.';}
+ catch(Throwable $e){if($db->inTransaction())$db->rollBack();error_log('Invoice operation failed: '.$e->getMessage());$error='Rechnung konnte nicht gespeichert werden. Prüfe Migration 014 und die Tabellenrechte.';}
 }
 $settingsQ=$db->prepare('SELECT * FROM coaching_rechnungseinstellungen WHERE coach_benutzer_id=:coach');$settingsQ->execute(['coach'=>$coach]);$settings=$settingsQ->fetch(PDO::FETCH_ASSOC)?:[];
 $taxQ=$db->prepare('SELECT id,bezeichnung,prozentsatz FROM coaching_steuersaetze WHERE coach_benutzer_id=:coach AND aktiv=1 ORDER BY bezeichnung');$taxQ->execute(['coach'=>$coach]);$taxRates=$taxQ->fetchAll(PDO::FETCH_ASSOC);$templateQ=$db->prepare('SELECT id,titel,kopftext,fusszeile,auftragstext FROM coaching_rechnungsvorlagen WHERE coach_benutzer_id=:coach AND aktiv=1 ORDER BY titel');$templateQ->execute(['coach'=>$coach]);$invoiceTemplates=$templateQ->fetchAll(PDO::FETCH_ASSOC);
