@@ -149,7 +149,7 @@ try {
     if (isset($_GET['edit']) && $missing === []) {
         $editId = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($editId === false || (int) $editId < 1) throw new InvalidArgumentException('Ungültige Termin-ID.');
-        $query = $database->prepare('SELECT t.id, t.klient_id, t.beginn, t.dauer_minuten, t.format, t.status, ' . $topicSelect . ' FROM termine t INNER JOIN klienten k ON k.id = t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.status='active' WHERE t.id = :id' . ($isAdmin ? '' : ' AND k.benutzer_id = :owner'));
+        $query = $database->prepare('SELECT t.id, t.klient_id, t.beginn, t.dauer_minuten, t.format, t.status, ' . $topicSelect . ' FROM termine t INNER JOIN klienten k ON k.id = t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.status=\'active\' WHERE t.id = :id' . ($isAdmin ? '' : ' AND k.benutzer_id = :owner'));
         $params = ['id' => (int) $editId];
         if (!$isAdmin) $params['owner'] = (int) $user['id'];
         $query->execute($params);
