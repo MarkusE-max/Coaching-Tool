@@ -117,6 +117,7 @@ try {
         if (!$clientCheck->fetchColumn()) {
             throw new InvalidArgumentException('Der ausgewählte Klient gehört nicht zu deinem Zugang.');
         }
+        $engagementId = coachingActiveEngagementId($database, $clientId);
 
         if ($id > 0) {
             $existing = $database->prepare('SELECT t.id FROM termine t INNER JOIN klienten k ON k.id = t.klient_id WHERE t.id = :id' . ($isAdmin ? '' : ' AND k.benutzer_id = :owner'));
@@ -126,8 +127,8 @@ try {
             if (!$existing->fetchColumn()) throw new InvalidArgumentException('Der Termin wurde nicht gefunden oder gehört nicht zu deinem Zugang.');
         }
 
-        $fields = ['klient_id = :client_id', 'beginn = :start', 'dauer_minuten = :duration', 'format = :format', 'status = :status'];
-        $params = ['client_id' => $clientId, 'start' => $date->format('Y-m-d H:i:s'), 'duration' => (int) $duration, 'format' => $format, 'status' => $status];
+        $fields = ['klient_id = :client_id', 'auftrag_id = :engagement_id', 'beginn = :start', 'dauer_minuten = :duration', 'format = :format', 'status = :status'];
+        $params = ['client_id' => $clientId, 'engagement_id' => $engagementId, 'start' => $date->format('Y-m-d H:i:s'), 'duration' => (int) $duration, 'format' => $format, 'status' => $status];
         if ($topicColumn !== null) { $fields[] = $topicColumn . ' = :topic'; $params['topic'] = $topic; }
 
         if ($id > 0) {
@@ -135,8 +136,8 @@ try {
             $update = $database->prepare('UPDATE termine SET ' . implode(', ', $fields) . ' WHERE id = :id');
             $update->execute($params);
         } else {
-            $insertColumns = ['klient_id', 'beginn', 'dauer_minuten', 'format', 'status'];
-            $insertValues = [':client_id', ':start', ':duration', ':format', ':status'];
+            $insertColumns = ['klient_id', 'auftrag_id', 'beginn', 'dauer_minuten', 'format', 'status'];
+            $insertValues = [':client_id', ':engagement_id', ':start', ':duration', ':format', ':status'];
             if ($topicColumn !== null) { $insertColumns[] = $topicColumn; $insertValues[] = ':topic'; }
             $insert = $database->prepare('INSERT INTO termine (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $insertValues) . ')');
             $insert->execute($params);
@@ -148,7 +149,7 @@ try {
     if (isset($_GET['edit']) && $missing === []) {
         $editId = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($editId === false || (int) $editId < 1) throw new InvalidArgumentException('Ungültige Termin-ID.');
-        $query = $database->prepare('SELECT t.id, t.klient_id, t.beginn, t.dauer_minuten, t.format, t.status, ' . $topicSelect . ' FROM termine t INNER JOIN klienten k ON k.id = t.klient_id WHERE t.id = :id' . ($isAdmin ? '' : ' AND k.benutzer_id = :owner'));
+        $query = $database->prepare('SELECT t.id, t.klient_id, t.beginn, t.dauer_minuten, t.format, t.status, ' . $topicSelect . ' FROM termine t INNER JOIN klienten k ON k.id = t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.status='active' WHERE t.id = :id' . ($isAdmin ? '' : ' AND k.benutzer_id = :owner'));
         $params = ['id' => (int) $editId];
         if (!$isAdmin) $params['owner'] = (int) $user['id'];
         $query->execute($params);
@@ -166,7 +167,7 @@ try {
 
 if ($missing === []) {
     try {
-        $sql = 'SELECT t.id, t.klient_id, t.beginn, t.dauer_minuten, t.format, t.status, ' . $topicSelect . ', k.vorname, k.nachname FROM termine t INNER JOIN klienten k ON k.id = t.klient_id' . ($isAdmin ? '' : ' WHERE k.benutzer_id = :owner') . ' ORDER BY t.beginn DESC LIMIT 200';
+        $sql = 'SELECT t.id, t.klient_id, t.beginn, t.dauer_minuten, t.format, t.status, ' . $topicSelect . ', k.vorname, k.nachname, a.titel AS auftrag_titel FROM termine t INNER JOIN klienten k ON k.id = t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id WHERE a.status=\'aktiv\'' . ($isAdmin ? '' : ' AND k.benutzer_id = :owner') . ' ORDER BY t.beginn DESC LIMIT 200';
         $query = $database->prepare($sql);
         $query->execute($isAdmin ? [] : ['owner' => (int) $user['id']]);
         $appointments = $query->fetchAll(PDO::FETCH_ASSOC);
