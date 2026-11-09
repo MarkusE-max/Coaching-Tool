@@ -91,7 +91,7 @@ if ($billingSchemaReady) {
     $days = $daysInput === '' ? null : filter_var($daysInput, FILTER_VALIDATE_INT);
     if ($daysInput !== '' && ($days === false || $days < 1 || $days > 365)) throw new InvalidArgumentException('Das Zahlungsziel muss zwischen 1 und 365 Tagen liegen.');
     $billingValues['zahlungsziel_tage'] = $days === false ? null : $days;
-    $lengthLimits = ['adresse_strasse'=>190,'adresse_plz'=>20,'adresse_ort'=>100,'adresse_land'=>100,'rechnung_empfaenger'=>190,'rechnung_strasse'=>190,'rechnung_plz'=>20,'rechnung_ort'=>100,'rechnung_land'=>100,'rechnung_email'=>190,'kundennummer'=>40,'preisvereinbarung'=>5000];
+    $lengthLimits = ['adresse_strasse'=>190,'adresse_plz'=>20,'adresse_ort'=>100,'adresse_land'=>100,'rechnung_empfaenger'=>190,'rechnung_strasse'=>190,'rechnung_plz'=>20,'rechnung_ort'=>100,'rechnung_land'=>100,'rechnung_email'=>190,'preisvereinbarung'=>5000];
     foreach ($lengthLimits as $field => $limit) if (strlen($billingValues[$field]) > $limit) throw new InvalidArgumentException('Ein Rechnungs- oder Adressfeld überschreitet die zulässige Länge.');
     if ($billingValues['rechnung_email'] !== '' && !filter_var($billingValues['rechnung_email'], FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Bitte gib eine gültige E-Mail-Adresse für Rechnungen ein.');
 }
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <label for="adresse_land">Land</label><input id="adresse_land" name="adresse_land" maxlength="100" value="<?= h($values['adresse_land'] ?? '') ?>">
 </fieldset>
 <fieldset class="billing"><legend>Abrechnung</legend>
-<label for="kundennummer">Kunden- / Referenznummer (optional)</label><input id="kundennummer" name="kundennummer" maxlength="40" value="<?= h($values['kundennummer'] ?? '') ?>">
+
 <label for="stundensatz">Kosten pro Stunde in Euro</label><input id="stundensatz" name="stundensatz" type="number" min="0" max="99999999.99" step="0.01" value="<?= h($values['stundensatz'] ?? '') ?>" placeholder="z. B. 90,00">
 <label for="preisvereinbarung">Preisabsprachen / Abweichungen</label><textarea id="preisvereinbarung" name="preisvereinbarung" maxlength="5000" placeholder="z. B. Paketpreis, Sozialtarif, vereinbarte Rabatte oder Sonderbedingungen"><?= h($values['preisvereinbarung'] ?? '') ?></textarea>
 <label for="zahlungsziel_tage">Zahlungsziel in Tagen (optional)</label><input id="zahlungsziel_tage" name="zahlungsziel_tage" type="number" min="1" max="365" value="<?= h($values['zahlungsziel_tage'] ?? '') ?>">
