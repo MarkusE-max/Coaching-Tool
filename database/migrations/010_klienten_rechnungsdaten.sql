@@ -19,5 +19,5 @@ ALTER TABLE klienten
  ADD COLUMN preisvereinbarung TEXT NULL,
  ADD COLUMN zahlungsziel_tage SMALLINT UNSIGNED NULL;
 
--- Die Anwendung aktualisiert die neue Spalten in klienten. Der bestehende
+-- Die Anwendung aktualisiert die neuen Spalten in klienten. Der bestehende
 -- Tabellenzugriff mit SELECT/INSERT/UPDATE reicht dafür aus.
