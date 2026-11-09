@@ -95,6 +95,7 @@ if ($billingSchemaReady) {
     foreach ($lengthLimits as $field => $limit) if (strlen($billingValues[$field]) > $limit) throw new InvalidArgumentException('Ein Rechnungs- oder Adressfeld überschreitet die zulässige Länge.');
     if ($billingValues['rechnung_email'] !== '' && !filter_var($billingValues['rechnung_email'], FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Bitte gib eine gültige E-Mail-Adresse für Rechnungen ein.');
 }
+        $values = array_merge($values, ['id'=>$id,'vorname'=>$first,'nachname'=>$last,'email'=>$email,'telefon'=>$phone,'benutzer_id'=>$isManager?(int)($_POST['benutzer_id']??0):(int)$user['id']], $billingValues);
         if ($isAdmin && $id === 0) throw new InvalidArgumentException('Administratoren können keine Klienten anlegen oder Coaches zuordnen. Bitte nutze dafür ein Coach- oder Verwalterkonto.');
         $ownerInput = $isManager ? filter_var($_POST['benutzer_id'] ?? null, FILTER_VALIDATE_INT) : null;
         if ($first === '' || $last === '' || strlen($first) > 400 || strlen($last) > 400) {
@@ -151,7 +152,7 @@ if ($billingSchemaReady) {
             $insert->execute($insertParams);
             $message = 'Der Klient wurde angelegt.';
         }
-        $values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'email' => '', 'telefon' => '', 'benutzer_id' => (int) $user['id']];
+        $values = ['id'=>0,'vorname'=>'','nachname'=>'','email'=>'','telefon'=>'','benutzer_id'=>(int)$user['id'],'adresse_strasse'=>'','adresse_plz'=>'','adresse_ort'=>'','adresse_land'=>'','rechnungsadresse_abweichend'=>0,'rechnung_empfaenger'=>'','rechnung_strasse'=>'','rechnung_plz'=>'','rechnung_ort'=>'','rechnung_land'=>'','rechnung_email'=>'','kundennummer'=>'','stundensatz'=>'','preisvereinbarung'=>'','zahlungsziel_tage'=>''];
     } elseif (isset($_GET['edit'])) {
         $id = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($id === false || (int) $id < 1) throw new InvalidArgumentException('Ungültige Klienten-ID.');
