@@ -181,7 +181,7 @@ if ($billingSchemaReady) {
 
 try {
     $ownerQuery = $isManager
-        ? $database->query("SELECT id, vorname, nachname FROM benutzer WHERE aktiv = 1 AND rolle = 'coach' ORDER BY nachname, vorname")
+        ? $database->query("SELECT id, vorname, nachname, coach_kennung FROM benutzer WHERE aktiv = 1 AND rolle = 'coach' ORDER BY nachname, vorname")
         : null;
     $owners = $ownerQuery ? $ownerQuery->fetchAll(PDO::FETCH_ASSOC) : [];
     if ($isManager && $owners === []) $error = 'Es gibt kein aktives Coach-Konto. Lege zuerst eines über Coach-Konten verwalten an.';
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <label for="rechnung_land">Land</label><input id="rechnung_land" name="rechnung_land" maxlength="100" value="<?= h($values['rechnung_land'] ?? '') ?>">
 </div></fieldset>
 <?php else: ?><p class="muted">Adress- und Rechnungsdaten werden nach Import von <code>database/migrations/010_klienten_rechnungsdaten.sql</code> verfügbar.</p><?php endif; ?>
-<?php if ($isManager): ?><label for="benutzer_id">Zuständiger Coach</label><select id="benutzer_id" name="benutzer_id" required><option value="">Bitte auswählen</option><?php foreach ($owners as $owner): ?><option value="<?= h($owner['id']) ?>" <?= (int) $values['benutzer_id'] === (int) $owner['id'] ? 'selected' : '' ?>><?= h($owner['vorname'] . ' ' . $owner['nachname']) ?></option><?php endforeach; ?></select><?php elseif ($isAdmin && (int) $values['id'] > 0): ?><p class="muted">Coach-Wechsel sind nur mit einem Verwalterkonto möglich.</p><?php endif; ?>
+<?php if ($isManager): ?><label for="benutzer_id">Zuständiger Coach</label><select id="benutzer_id" name="benutzer_id" required><option value="">Bitte auswählen</option><?php foreach ($owners as $owner): ?><option value="<?= h($owner['id']) ?>" <?= (int) $values['benutzer_id'] === (int) $owner['id'] ? 'selected' : '' ?>><?= h($owner['vorname'] . ' ' . $owner['nachname'] . ' · ' . $owner['coach_kennung']) ?></option><?php endforeach; ?></select><?php elseif ($isAdmin && (int) $values['id'] > 0): ?><p class="muted">Coach-Wechsel sind nur mit einem Verwalterkonto möglich.</p><?php endif; ?>
 <button class="button" type="submit">Speichern</button><?php if ((int) $values['id'] > 0): ?><a class="cancel" href="clients.php">Abbrechen</a><?php endif; ?>
 </form></section>
 <section class="card"><h2>Klienten (<?= count($clients) ?>)</h2><?php if (!$clients): ?><p>Noch keine Klienten eingetragen.</p><?php else: ?><div class="table-wrap"><table><thead><tr><th>Name</th><th>Kontakt</th><?php if ($canSeeAllClients): ?><th>Coach</th><?php endif; ?><th></th></tr></thead><tbody><?php foreach ($clients as $client): ?><tr><td><?= h($client['vorname'] . ' ' . $client['nachname']) ?><?php if ($billingSchemaReady && !empty($client['kundennummer'])): ?><br><span class="muted">Kundennr. <?= h($client['kundennummer']) ?></span><?php endif; ?></td><td><?= h($client['email'] ?? '') ?><?php if (!empty($client['telefon'])): ?><br><span class="muted"><?= h($client['telefon']) ?></span><?php endif; ?></td><?php if ($canSeeAllClients): ?><td><?= h(trim(($client['coach_vorname'] ?? '') . ' ' . ($client['coach_nachname'] ?? ''))) ?></td><?php endif; ?><td><?php if (!$isManager): ?><a href="client-overview.php?id=<?= h($client['id']) ?>">Übersicht</a> · <?php endif; ?><a href="clients.php?edit=<?= h($client['id']) ?>">Bearbeiten</a></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></section></div>
