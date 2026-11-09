@@ -78,6 +78,7 @@ try {
         $client = $clientCheck->fetch(PDO::FETCH_ASSOC);
         if (!$client) throw new InvalidArgumentException('Der ausgewählte Klient gehört nicht zu deinem Zugang.');
         $goalCoachId = (int) $client['benutzer_id'];
+        $engagementId = coachingActiveEngagementId($database, $clientId);
 
         if ($id > 0) {
             $exists = $database->prepare('SELECT id FROM coaching_ziele WHERE id = :id' . ($isAdmin ? '' : ' AND coach_benutzer_id = :owner'));
@@ -85,11 +86,11 @@ try {
             if (!$isAdmin) $existsParams['owner'] = (int) $user['id'];
             $exists->execute($existsParams);
             if (!$exists->fetchColumn()) throw new InvalidArgumentException('Das Ziel wurde nicht gefunden oder gehört nicht zu deinem Zugang.');
-            $update = $database->prepare('UPDATE coaching_ziele SET klient_id = :client_id, coach_benutzer_id = :coach_id, titel = :title, beschreibung = :description, erfolgskriterium = :criterion, zieltermin = :due_date, status = :status WHERE id = :id');
-            $update->execute(['client_id' => $clientId, 'coach_id' => $goalCoachId, 'title' => $title, 'description' => $description ?: null, 'criterion' => $criterion ?: null, 'due_date' => $dueDate ?: null, 'status' => $status, 'id' => $id]);
+            $update = $database->prepare('UPDATE coaching_ziele SET klient_id = :client_id, coach_benutzer_id = :coach_id, auftrag_id = :engagement_id, titel = :title, beschreibung = :description, erfolgskriterium = :criterion, zieltermin = :due_date, status = :status WHERE id = :id');
+            $update->execute(['client_id' => $clientId, 'coach_id' => $goalCoachId, 'engagement_id' => $engagementId, 'title' => $title, 'description' => $description ?: null, 'criterion' => $criterion ?: null, 'due_date' => $dueDate ?: null, 'status' => $status, 'id' => $id]);
         } else {
-            $insert = $database->prepare('INSERT INTO coaching_ziele (klient_id, coach_benutzer_id, titel, beschreibung, erfolgskriterium, zieltermin, status) VALUES (:client_id, :coach_id, :title, :description, :criterion, :due_date, :status)');
-            $insert->execute(['client_id' => $clientId, 'coach_id' => $goalCoachId, 'title' => $title, 'description' => $description ?: null, 'criterion' => $criterion ?: null, 'due_date' => $dueDate ?: null, 'status' => $status]);
+            $insert = $database->prepare('INSERT INTO coaching_ziele (klient_id, coach_benutzer_id, auftrag_id, titel, beschreibung, erfolgskriterium, zieltermin, status) VALUES (:client_id, :coach_id, :engagement_id, :title, :description, :criterion, :due_date, :status)');
+            $insert->execute(['client_id' => $clientId, 'coach_id' => $goalCoachId, 'engagement_id' => $engagementId, 'title' => $title, 'description' => $description ?: null, 'criterion' => $criterion ?: null, 'due_date' => $dueDate ?: null, 'status' => $status]);
         }
         header('Location: goals.php?saved=1');
         exit;
@@ -98,7 +99,7 @@ try {
     if (isset($_GET['edit'])) {
         $editId = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($editId === false || (int) $editId < 1) throw new InvalidArgumentException('Ungültige Ziel-ID.');
-        $query = $database->prepare('SELECT g.id, g.klient_id, g.titel, g.beschreibung, g.erfolgskriterium, g.zieltermin, g.status FROM coaching_ziele g INNER JOIN klienten k ON k.id = g.klient_id WHERE g.id = :id' . ($isAdmin ? '' : ' AND g.coach_benutzer_id = :owner AND k.benutzer_id = :client_owner'));
+        $query = $database->prepare('SELECT g.id, g.klient_id, g.titel, g.beschreibung, g.erfolgskriterium, g.zieltermin, g.status FROM coaching_ziele g INNER JOIN klienten k ON k.id = g.klient_id INNER JOIN coaching_auftraege a ON a.id=g.auftrag_id AND a.status=\'aktiv\' WHERE g.id = :id' . ($isAdmin ? '' : ' AND g.coach_benutzer_id = :owner AND k.benutzer_id = :client_owner'));
         $params = ['id' => (int) $editId];
         if (!$isAdmin) { $params['owner'] = (int) $user['id']; $params['client_owner'] = (int) $user['id']; }
         $query->execute($params);
@@ -115,9 +116,9 @@ try {
 
 try {
     if ($isAdmin) {
-        $query = $database->query('SELECT g.id, g.klient_id, g.titel, g.status, g.zieltermin, g.geaendert_am, k.vorname, k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id = g.klient_id ORDER BY g.geaendert_am DESC LIMIT 200');
+        $query = $database->query('SELECT g.id, g.klient_id, g.titel, g.status, g.zieltermin, g.geaendert_am, k.vorname, k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id = g.klient_id INNER JOIN coaching_auftraege a ON a.id=g.auftrag_id WHERE a.status=\'aktiv\' ORDER BY g.geaendert_am DESC LIMIT 200');
     } else {
-        $query = $database->prepare('SELECT g.id, g.klient_id, g.titel, g.status, g.zieltermin, g.geaendert_am, k.vorname, k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id = g.klient_id WHERE k.benutzer_id = :owner ORDER BY g.geaendert_am DESC LIMIT 200');
+        $query = $database->prepare('SELECT g.id, g.klient_id, g.titel, g.status, g.zieltermin, g.geaendert_am, k.vorname, k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id = g.klient_id INNER JOIN coaching_auftraege a ON a.id=g.auftrag_id WHERE k.benutzer_id = :owner AND a.status=\'aktiv\' ORDER BY g.geaendert_am DESC LIMIT 200');
         $query->execute(['owner' => (int) $user['id']]);
     }
     $goals = $query->fetchAll(PDO::FETCH_ASSOC);
