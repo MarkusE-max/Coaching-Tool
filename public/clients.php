@@ -157,8 +157,10 @@ if ($billingSchemaReady) {
                 $numberUpdate = $database->prepare("UPDATE klienten SET kundennummer = :number WHERE id = :id AND (kundennummer IS NULL OR TRIM(kundennummer) = '')");
                 $numberUpdate->execute(['number' => $customerNumber, 'id' => $newClientId]);
             }
+            $initialOrder = $database->prepare("INSERT INTO coaching_auftraege (klient_id,coach_benutzer_id,titel,status) VALUES (:client,:coach,'Erstauftrag','aktiv')");
+            $initialOrder->execute(['client'=>$newClientId,'coach'=>$owner]);
             $database->commit();
-            $message = 'Der Klient wurde mit einer dauerhaften Kundennummer angelegt.';
+            $message = 'Der Klient wurde mit einer dauerhaften Kundennummer und einem ersten Coaching-Auftrag angelegt.';
         }
         $values = ['id'=>0,'vorname'=>'','nachname'=>'','email'=>'','telefon'=>'','benutzer_id'=>(int)$user['id'],'adresse_strasse'=>'','adresse_plz'=>'','adresse_ort'=>'','adresse_land'=>'','rechnungsadresse_abweichend'=>0,'rechnung_empfaenger'=>'','rechnung_strasse'=>'','rechnung_plz'=>'','rechnung_ort'=>'','rechnung_land'=>'','rechnung_email'=>'','kundennummer'=>'','stundensatz'=>'','preisvereinbarung'=>'','zahlungsziel_tage'=>''];
     } elseif (isset($_GET['edit'])) {
