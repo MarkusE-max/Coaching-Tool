@@ -4,7 +4,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 
 | Nr. | Bereich | Funktion | Stand |
 | --- | --- | --- | --- |
-| F1 | Nutzer und Rollen | Login, Rollen Coach / Klient / Admin / Verwalter, Passwort-Reset | Umgesetzt, sofern SMTP eingerichtet und eine gültige E-Mail am Konto hinterlegt ist: Coach, Admin, Verwalter und Coachee können einen einmaligen 60-Minuten-Rücksetzlink anfordern. SMTP-Konfiguration ist adminverwaltet; Coachee-E-Mail wird in der Zugangspflege erfasst. Manuelles Setzen eines Coachee-Passworts bleibt ebenfalls möglich. |
+| F1 | Nutzer und Rollen | Login, Rollen Coach / Klient / Admin / Verwalter, Passwort-Reset | Umgesetzt, sofern SMTP eingerichtet und eine gültige E-Mail am Konto hinterlegt ist: Coach, Admin, Verwalter und Coachee können einen einmaligen 60-Minuten-Rücksetzlink anfordern. SMTP-Konfiguration ist pro Coach/Admin/Verwalter getrennt; Coachee-Rücksetzlinks verwenden die Einstellungen des zugeordneten Coaches und die individuelle Antwortadresse. Coachee-E-Mail wird in der Zugangspflege erfasst. Manuelles Setzen eines Coachee-Passworts bleibt ebenfalls möglich. |
 | F2 | Klientenverwaltung | Klientenstammdaten, Status (aktiv/pausiert/abgeschlossen) | Teilweise: Coaches sehen eigene Klienten; Admin kann Stammdaten ansehen, aber nicht zuordnen; Verwalter kann Stammdaten und Coach-Zuordnung verwalten. Coach-Wechsel werden protokolliert. |
 | F3 | Termine | Termine pro Klient anlegen, bearbeiten, Verlauf | Umgesetzt: Anlage, Bearbeitung und Verlauf; Rechte werden anhand der Klientenzuordnung geprüft. Aus Dashboard und Klientenakte ist die jeweilige Klientenakte direkt erreichbar; Termine können dort mit vorausgewähltem Klienten neu angelegt werden. |
 | F4 | Stream | Gemeinsamer Nachrichtenverlauf Coach ↔ Klient, Dateianhänge | Im Code umgesetzt: Coach und Coachee können in der Klientenakte bzw. im Portal schreiben und PDF/JPG/PNG anhängen; Dateien liegen privat und werden rollen- und klientengebunden ausgeliefert. Synology-Funktionstest steht aus. |
@@ -47,3 +47,5 @@ Migrationen 001 bis 003 ergänzen Notizen/Ziele, Dokumente und QR-Signaturen; Mi
 - Zurücksetzanforderungen verlangen Benutzername und hinterlegte E-Mail-Adresse. Antworten verraten nicht, ob ein Konto gefunden wurde. Tokens werden gehasht gespeichert, laufen nach 60 Minuten ab, sind einmal verwendbar und pro Konto begrenzt.
 - Coach-/Verwalter-/Admin-E-Mails stammen aus `benutzer.email`; Coachees erhalten ihre Adresse über die Zugangspflege. Ohne aktive SMTP-Einstellung oder gültige E-Mail wird kein Link versendet.
 - Die Anwendung verbindet sich per SMTP-Client aus PHP heraus. Für externen Versand müssen DNS, ausgehender Netzwerkzugriff und der SMTP-Port im Synology-Netz verfügbar sein.
+
+- Migration 016 trennt SMTP-Zugangsdaten und Antwortadresse pro Benutzerkonto. Jeder Coach konfiguriert ausschließlich seinen eigenen Versand; ein Coachee erhält Reset-E-Mails über den aktuellen Coach.
