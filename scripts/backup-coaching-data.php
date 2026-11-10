@@ -73,6 +73,10 @@ try {
     if (!is_dir($backupPath) && !mkdir($backupPath, 0700, true) && !is_dir($backupPath)) throw new RuntimeException('Backup folder cannot be created.');
     if (is_link($backupPath)) throw new RuntimeException('Backup folder cannot be a symbolic link.');
     chmod($backupPath, 0700);
+    $backupReal = realpath($backupPath);
+    if ($publicRoot !== false && $backupReal !== false && ($backupReal === $publicRoot || str_starts_with($backupReal . DIRECTORY_SEPARATOR, $publicRoot . DIRECTORY_SEPARATOR))) {
+        throw new RuntimeException('Backup folder must be outside the public web folder.');
+    }
 
     $stamp = date('Y-m-d_His');
     $final = rtrim($backupPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'coaching-' . $stamp;
@@ -89,6 +93,8 @@ try {
         if (gzwrite($gzip, $chunk) === false) throw new RuntimeException('Database backup could not be written.');
     };
     $write("-- Coaching Tool MariaDB backup\n-- Created: " . date(DATE_ATOM) . "\n-- Database: " . $databaseName . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n");
+    $database->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+    $database->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
     $tables = $database->query('SHOW FULL TABLES')->fetchAll(PDO::FETCH_NUM);
     foreach ($tables as $tableRow) {
         $tableName = (string) ($tableRow[0] ?? '');
@@ -109,6 +115,7 @@ try {
             $write('INSERT INTO ' . $quotedTable . ' (' . $columnSql . ') VALUES (' . implode(',', $values) . ");\n");
         }
     }
+    $database->commit();
     $write("\nSET FOREIGN_KEY_CHECKS=1;\n");
     if (!gzclose($gzip)) throw new RuntimeException('Compressed database backup could not be finalized.');
 
