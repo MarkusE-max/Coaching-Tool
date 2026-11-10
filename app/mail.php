@@ -209,7 +209,7 @@ function coachingMailSendCoacheeInvitation(PDO $db, int $coachId, int $portalId)
             "UPDATE coaching_passwort_resets
              SET verwendet_am=NOW()
              WHERE konto_typ='coachee' AND konto_id=:portal
-               AND id<>:current AND verwendet_am IS NULL"
+               AND id<:current AND verwendet_am IS NULL"
         );
         $invalidate->execute(['portal' => $portalId, 'current' => $resetId]);
     } catch (Throwable $error) {
