@@ -153,7 +153,7 @@ function coachingMailSend(PDO $db,int $ownerId,string $recipient,string $subject
 function coachingMailSendCoacheeInvitation(PDO $db, int $coachId, int $portalId): void
 {
     $query = $db->prepare(
-        "SELECT p.id, p.benutzername, p.email
+        "SELECT p.id, p.benutzername, p.email, k.vorname
          FROM coaching_portal_zugaenge p
          INNER JOIN klienten k ON k.id = p.klient_id AND k.benutzer_id = :coach
          WHERE p.id = :portal AND p.aktiv = 1
