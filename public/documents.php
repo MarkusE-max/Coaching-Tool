@@ -30,7 +30,7 @@ if (!is_string($token) || strlen($token) !== 64) {
     $_SESSION['csrf_token'] = $token;
 }
 $error = '';
-$notice = isset($_GET['saved']) ? 'Die Änderung wurde gespeichert.' : '';
+$notice = isset($_GET['deleted']) ? 'Die unzugewiesene Vorlage und ihre Datei wurden gelöscht.' : (isset($_GET['template_hidden']) ? 'Die Vorlage wurde aus der aktiven Liste entfernt. Bereits zugewiesene Klientendokumente bleiben erhalten.' : (isset($_GET['file_deleted']) ? 'Der hochgeladene Rücklauf wurde gelöscht.' : (isset($_GET['saved']) ? 'Die Änderung wurde gespeichert.' : '')));
 $qrFlash = $_SESSION['document_sign_flash'] ?? null;
 unset($_SESSION['document_sign_flash']);
 if (!is_array($qrFlash)) $qrFlash = null;
@@ -92,6 +92,77 @@ try {
             $insert = $database->prepare("INSERT INTO coaching_klientendokumente (klient_id, coach_benutzer_id, auftrag_id, vorlage_id, vorlage_version, vorlage_speicher_schluessel, vorlage_originalname, titel, status) VALUES (:client, :coach, :engagement, :template, :version, :key, :name, :title, 'zugewiesen')");
             $insert->execute(['client' => (int) $clientId, 'coach' => $coachId, 'engagement' => $engagementId, 'template' => $template['id'], 'version' => $template['version'], 'key' => $template['speicher_schluessel'], 'name' => $template['originalname'], 'title' => $template['titel']]);
             header('Location: documents.php?klient_id=' . (int) $clientId . '&saved=1');
+            exit;
+        }
+
+        if ($action === 'delete_template') {
+            $templateId = filter_var($_POST['vorlage_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($templateId === false || (int) $templateId < 1) throw new InvalidArgumentException('Ungültige Vorlage.');
+            $database->beginTransaction();
+            try {
+                $templateQuery = $database->prepare('SELECT id, speicher_schluessel, mime_typ FROM coaching_dokumentvorlagen WHERE id = :id AND coach_benutzer_id = :coach FOR UPDATE');
+                $templateQuery->execute(['id' => (int) $templateId, 'coach' => $coachId]);
+                $template = $templateQuery->fetch(PDO::FETCH_ASSOC);
+                if (!$template) throw new InvalidArgumentException('Die Vorlage wurde nicht gefunden.');
+                $usageQuery = $database->prepare('SELECT COUNT(*) FROM coaching_klientendokumente WHERE vorlage_id = :id AND coach_benutzer_id = :coach');
+                $usageQuery->execute(['id' => (int) $templateId, 'coach' => $coachId]);
+                if ((int) $usageQuery->fetchColumn() > 0) {
+                    $deactivate = $database->prepare('UPDATE coaching_dokumentvorlagen SET aktiv = 0 WHERE id = :id AND coach_benutzer_id = :coach');
+                    $deactivate->execute(['id' => (int) $templateId, 'coach' => $coachId]);
+                    $database->commit();
+                    header('Location: documents.php?template_hidden=1');
+                    exit;
+                }
+                $filePath = coachingResolveDocumentFile((string) $template['speicher_schluessel'], (string) $template['mime_typ']);
+                $delete = $database->prepare('DELETE FROM coaching_dokumentvorlagen WHERE id = :id AND coach_benutzer_id = :coach');
+                $delete->execute(['id' => (int) $templateId, 'coach' => $coachId]);
+                if ($delete->rowCount() !== 1) throw new RuntimeException('Die Vorlage konnte nicht gelöscht werden.');
+                $database->commit();
+                if (is_file($filePath) && !@unlink($filePath)) error_log('Coaching Tool could not remove private template file: ' . basename($filePath));
+            } catch (Throwable $exception) {
+                if ($database->inTransaction()) $database->rollBack();
+                throw $exception;
+            }
+            header('Location: documents.php?deleted=1');
+            exit;
+        }
+
+        if ($action === 'delete_return_file') {
+            $fileId = filter_var($_POST['datei_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($fileId === false || (int) $fileId < 1) throw new InvalidArgumentException('Ungültiger Rücklauf.');
+            $database->beginTransaction();
+            try {
+                $fileQuery = $database->prepare("SELECT f.id, f.klientendokument_id, f.speicher_schluessel, f.mime_typ, d.ausgegeben_am
+                    FROM coaching_dokumentdateien f
+                    INNER JOIN coaching_klientendokumente d ON d.id = f.klientendokument_id
+                    INNER JOIN klienten k ON k.id = d.klient_id
+                    INNER JOIN coaching_auftraege a ON a.id = d.auftrag_id AND a.status = 'aktiv'
+                    WHERE f.id = :id AND f.coach_benutzer_id = :coach AND d.coach_benutzer_id = :coach
+                      AND k.benutzer_id = :client_owner
+                    FOR UPDATE");
+                $fileQuery->execute(['id' => (int) $fileId, 'coach' => $coachId, 'client_owner' => $coachId]);
+                $returnFile = $fileQuery->fetch(PDO::FETCH_ASSOC);
+                if (!$returnFile) throw new InvalidArgumentException('Der Rücklauf wurde nicht gefunden oder gehört nicht zu einem aktiven Klienten.');
+                $filePath = coachingResolveDocumentFile((string) $returnFile['speicher_schluessel'], (string) $returnFile['mime_typ']);
+                $delete = $database->prepare('DELETE FROM coaching_dokumentdateien WHERE id = :id AND coach_benutzer_id = :coach');
+                $delete->execute(['id' => (int) $fileId, 'coach' => $coachId]);
+                if ($delete->rowCount() !== 1) throw new RuntimeException('Der Rücklauf konnte nicht gelöscht werden.');
+                $unlinkSignature = $database->prepare('UPDATE coaching_dokument_signaturanfragen SET signierte_datei_id = NULL WHERE signierte_datei_id = :file AND coach_benutzer_id = :coach');
+                $unlinkSignature->execute(['file' => (int) $fileId, 'coach' => $coachId]);
+                $remainingQuery = $database->prepare('SELECT COUNT(*) FROM coaching_dokumentdateien WHERE klientendokument_id = :document AND coach_benutzer_id = :coach');
+                $remainingQuery->execute(['document' => (int) $returnFile['klientendokument_id'], 'coach' => $coachId]);
+                $newStatus = (int) $remainingQuery->fetchColumn() > 0
+                    ? 'zurueckgekommen'
+                    : (!empty($returnFile['ausgegeben_am']) ? 'ausgegeben' : 'zugewiesen');
+                $updateDocument = $database->prepare('UPDATE coaching_klientendokumente SET status = :status WHERE id = :id AND coach_benutzer_id = :coach');
+                $updateDocument->execute(['status' => $newStatus, 'id' => (int) $returnFile['klientendokument_id'], 'coach' => $coachId]);
+                $database->commit();
+                if (is_file($filePath) && !@unlink($filePath)) error_log('Coaching Tool could not remove private return file: ' . basename($filePath));
+            } catch (Throwable $exception) {
+                if ($database->inTransaction()) $database->rollBack();
+                throw $exception;
+            }
+            header('Location: documents.php?klient_id=' . $selectedClient . '&file_deleted=1');
             exit;
         }
 
@@ -236,7 +307,7 @@ $formatBytes = static function (int $bytes): string {
 <title>Dokumente · Coaching Tool</title>
 <link rel="stylesheet" href="assets/layout.css"><script src="assets/layout.js" defer></script>
 <style>
-.document-page{max-width:1180px;margin:auto;padding:30px clamp(18px,4vw,56px) 70px}.document-page h1{font-size:clamp(30px,4vw,44px);letter-spacing:-.04em;margin:20px 0 8px}.document-intro{color:#65766f;line-height:1.6;max-width:760px}.document-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:24px}.document-card{background:#fff;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.document-card h2{margin:0 0 14px;font-size:18px}.document-form{display:grid;gap:9px}.document-form label{font-size:13px;font-weight:650;margin-top:4px}.document-form input,.document-form select{width:100%;border:1px solid #dce5df;border-radius:9px;padding:11px;font:inherit;background:#fff}.document-button{border:0;border-radius:9px;padding:11px 14px;background:#245c50;color:#fff;font:inherit;font-weight:650;cursor:pointer;width:max-content}.document-button.secondary{background:#edf4ef;color:#245c50}.document-alert{padding:12px 14px;border-radius:9px}.document-alert.error{background:#fff3f1;color:#8c3434}.document-alert.ok{background:#edf5ef;color:#245c50}.document-list{margin-top:22px}.document-row{padding:16px 0;border-bottom:1px solid #edf1ee;display:grid;gap:10px}.document-row:last-child{border:0}.document-row-top{display:flex;gap:12px;justify-content:space-between;align-items:flex-start}.document-meta{font-size:12px;color:#74817c;line-height:1.6}.document-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.document-actions a{color:#35695b}.document-actions form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.document-actions input[type=file]{max-width:240px}.document-chip{font-size:11px;border-radius:999px;background:#eef3ef;padding:4px 8px;white-space:nowrap}.document-empty{color:#74817c}.sign-share{margin:18px 0;padding:18px;border:1px solid #d5e4d9;background:#f2f7f3;border-radius:12px}.sign-share-grid{display:grid;grid-template-columns:180px 1fr;gap:18px;align-items:center}.sign-qr{width:180px;height:180px;background:#fff;padding:8px;border-radius:8px}.sign-code{font-size:24px;letter-spacing:.14em;font-weight:750;color:#245c50}.sign-url{display:block;max-width:100%;overflow-wrap:anywhere;font-size:12px}.sign-warning{font-size:12px;color:#65766f;line-height:1.5}@media(max-width:600px){.sign-share-grid{grid-template-columns:1fr}.sign-qr{margin:auto}}@media(max-width:800px){.document-grid{grid-template-columns:1fr}.document-row-top{display:block}.document-chip{display:inline-block;margin-top:8px}}
+.document-page{max-width:1180px;margin:auto;padding:30px clamp(18px,4vw,56px) 70px}.document-page h1{font-size:clamp(30px,4vw,44px);letter-spacing:-.04em;margin:20px 0 8px}.document-intro{color:#65766f;line-height:1.6;max-width:760px}.document-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:24px}.document-card{background:#fff;border:1px solid #e5ebe6;border-radius:14px;padding:20px;box-shadow:0 8px 30px #263b3210}.document-card h2{margin:0 0 14px;font-size:18px}.document-form{display:grid;gap:9px}.document-form label{font-size:13px;font-weight:650;margin-top:4px}.document-form input,.document-form select{width:100%;border:1px solid #dce5df;border-radius:9px;padding:11px;font:inherit;background:#fff}.document-button{border:0;border-radius:9px;padding:11px 14px;background:#245c50;color:#fff;font:inherit;font-weight:650;cursor:pointer;width:max-content}.document-button.secondary{background:#edf4ef;color:#245c50}.document-button.danger{background:#fff0ed;color:#8a3024;border:1px solid #f0c8c2}.document-delete-form{margin-top:2px}.document-delete-form button,.document-delete-inline button{font-size:12px;padding:7px 10px}.document-delete-inline{display:inline-flex;margin:0 0 0 8px;vertical-align:middle}.document-alert{padding:12px 14px;border-radius:9px}.document-alert.error{background:#fff3f1;color:#8c3434}.document-alert.ok{background:#edf5ef;color:#245c50}.document-list{margin-top:22px}.document-row{padding:16px 0;border-bottom:1px solid #edf1ee;display:grid;gap:10px}.document-row:last-child{border:0}.document-row-top{display:flex;gap:12px;justify-content:space-between;align-items:flex-start}.document-meta{font-size:12px;color:#74817c;line-height:1.6}.document-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.document-actions a{color:#35695b}.document-actions form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.document-actions input[type=file]{max-width:240px}.document-chip{font-size:11px;border-radius:999px;background:#eef3ef;padding:4px 8px;white-space:nowrap}.document-empty{color:#74817c}.sign-share{margin:18px 0;padding:18px;border:1px solid #d5e4d9;background:#f2f7f3;border-radius:12px}.sign-share-grid{display:grid;grid-template-columns:180px 1fr;gap:18px;align-items:center}.sign-qr{width:180px;height:180px;background:#fff;padding:8px;border-radius:8px}.sign-code{font-size:24px;letter-spacing:.14em;font-weight:750;color:#245c50}.sign-url{display:block;max-width:100%;overflow-wrap:anywhere;font-size:12px}.sign-warning{font-size:12px;color:#65766f;line-height:1.5}@media(max-width:600px){.sign-share-grid{grid-template-columns:1fr}.sign-qr{margin:auto}}@media(max-width:800px){.document-grid{grid-template-columns:1fr}.document-row-top{display:block}.document-chip{display:inline-block;margin-top:8px}}
 </style>
 </head>
 <body class="has-app-sidebar">
@@ -286,7 +357,7 @@ $formatBytes = static function (int $bytes): string {
 <section class="document-card document-list">
 <div class="document-row-top"><h2>Vorlagen (<?= count($templates) ?>)</h2></div>
 <?php if ($templates === []): ?><p class="document-empty">Noch keine Vorlagen vorhanden.</p><?php else: ?>
-<?php foreach ($templates as $template): ?><article class="document-row"><div class="document-row-top"><strong><?= documentH($template['titel']) ?> <span class="document-chip">Version <?= documentH($template['version']) ?></span></strong><a href="document-download.php?type=template&id=<?= documentH($template['id']) ?>">PDF herunterladen</a></div><div class="document-meta"><?= documentH($template['kategorie']) ?> · <?= documentH($template['originalname']) ?> · <?= documentH($formatBytes((int) $template['groesse_bytes'])) ?> · <?= documentH(date('d.m.Y', strtotime($template['erstellt_am']))) ?></div></article><?php endforeach; ?>
+<?php foreach ($templates as $template): ?><article class="document-row"><div class="document-row-top"><strong><?= documentH($template['titel']) ?> <span class="document-chip">Version <?= documentH($template['version']) ?></span></strong><a href="document-download.php?type=template&id=<?= documentH($template['id']) ?>">PDF herunterladen</a></div><div class="document-meta"><?= documentH($template['kategorie']) ?> · <?= documentH($template['originalname']) ?> · <?= documentH($formatBytes((int) $template['groesse_bytes'])) ?> · <?= documentH(date('d.m.Y', strtotime($template['erstellt_am']))) ?></div><form method="post" class="document-delete-form" onsubmit="return confirm('Vorlage aus der aktiven Liste entfernen? Falls sie bereits zugewiesen wurde, bleibt sie für diese Klientendokumente erhalten.');"><input type="hidden" name="csrf_token" value="<?= documentH($token) ?>"><input type="hidden" name="action" value="delete_template"><input type="hidden" name="vorlage_id" value="<?= (int) $template['id'] ?>"><button class="document-button secondary danger" type="submit">Vorlage entfernen</button></form></article><?php endforeach; ?>
 <?php endif; ?>
 </section>
 <section class="document-card document-list">
@@ -306,7 +377,7 @@ $formatBytes = static function (int $bytes): string {
 <form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="<?= documentH($token) ?>"><input type="hidden" name="action" value="upload_return"><input type="hidden" name="dokument_id" value="<?= documentH($assignment['id']) ?>"><label class="document-meta" for="return-<?= documentH($assignment['id']) ?>">Rücklauf (PDF/JPG/PNG)</label><input id="return-<?= documentH($assignment['id']) ?>" type="file" name="datei" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" required><button class="document-button" type="submit">Rücklauf speichern</button></form>
 <?php endif; ?>
 </div>
-<?php foreach ($filesByDocument[(int) $assignment['id']] ?? [] as $signedFile): ?><div class="document-meta">Rücklauf Version <?= documentH($signedFile['version']) ?> · <?= documentH($signedFile['originalname']) ?> · <?= documentH($formatBytes((int) $signedFile['groesse_bytes'])) ?> · <?= documentH(date('d.m.Y H:i', strtotime($signedFile['hochgeladen_am']))) ?> · <a href="document-download.php?type=return&id=<?= documentH($signedFile['id']) ?>">geschützt herunterladen</a></div><?php endforeach; ?>
+<?php foreach ($filesByDocument[(int) $assignment['id']] ?? [] as $signedFile): ?><div class="document-meta return-file-row">Rücklauf Version <?= documentH($signedFile['version']) ?> · <?= documentH($signedFile['originalname']) ?> · <?= documentH($formatBytes((int) $signedFile['groesse_bytes'])) ?> · <?= documentH(date('d.m.Y H:i', strtotime($signedFile['hochgeladen_am']))) ?> · <a href="document-download.php?type=return&id=<?= documentH($signedFile['id']) ?>">geschützt herunterladen</a><form method="post" class="document-delete-inline" onsubmit="return confirm('Diesen Rücklauf dauerhaft löschen? Er steht danach auch dem Coachee nicht mehr zum Download bereit.');"><input type="hidden" name="csrf_token" value="<?= documentH($token) ?>"><input type="hidden" name="action" value="delete_return_file"><input type="hidden" name="datei_id" value="<?= (int) $signedFile['id'] ?>"><button class="document-button secondary danger" type="submit">Löschen</button></form></div><?php endforeach; ?>
 </article><?php endforeach; ?>
 <?php endif; ?>
 </section>
