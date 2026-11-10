@@ -13,6 +13,11 @@ function coachingSchemaStatus(PDO $database): array
         ? $database->query('SHOW COLUMNS FROM coaching_rechnungseinstellungen')->fetchAll(PDO::FETCH_COLUMN)
         : [];
     $missingInvoiceSettingsColumns = array_values(array_diff($requiredInvoiceSettingsColumns, $invoiceSettingsColumns));
+    $requiredEmailSettingsColumns = ['benutzer_id','antwort_email'];
+    $emailSettingsColumns = in_array('coaching_email_einstellungen', $existing, true)
+        ? $database->query('SHOW COLUMNS FROM coaching_email_einstellungen')->fetchAll(PDO::FETCH_COLUMN)
+        : [];
+    $missingEmailSettingsColumns = array_values(array_diff($requiredEmailSettingsColumns, $emailSettingsColumns));
     $requiredPortalColumns = ['email'];
     $portalColumns = in_array('coaching_portal_zugaenge', $existing, true)
         ? $database->query('SHOW COLUMNS FROM coaching_portal_zugaenge')->fetchAll(PDO::FETCH_COLUMN)
@@ -28,7 +33,7 @@ function coachingSchemaStatus(PDO $database): array
     $missingNoteColumns = array_values(array_diff($requiredNoteColumns, $noteColumns));
 
     return [
-        'ready' => $missing === [] && $missingNoteColumns === [] && $missingInvoiceColumns === [] && $missingInvoiceSettingsColumns === [] && $missingPortalColumns === [],
+        'ready' => $missing === [] && $missingNoteColumns === [] && $missingInvoiceColumns === [] && $missingInvoiceSettingsColumns === [] && $missingPortalColumns === [] && $missingEmailSettingsColumns === [],
         'required_tables' => $required,
         'missing_tables' => $missing,
         'required_note_columns' => $requiredNoteColumns,
@@ -39,5 +44,7 @@ function coachingSchemaStatus(PDO $database): array
         'missing_invoice_settings_columns' => $missingInvoiceSettingsColumns,
         'required_portal_columns' => $requiredPortalColumns,
         'missing_portal_columns' => $missingPortalColumns,
+        'required_email_settings_columns' => $requiredEmailSettingsColumns,
+        'missing_email_settings_columns' => $missingEmailSettingsColumns,
     ];
 }
