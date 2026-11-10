@@ -27,6 +27,6 @@ return [
 
     // Optional private backup folder; default: <project>/storage/backups.
     // Keep backups outside the public web folder and restrict folder access.
-    'backup_storage_path' => '/volume1/private/Coaching-Tool-Backups',
+    // 'backup_storage_path' => '/volume1/<private-shared-folder>/Coaching-Tool-Backups',
     'backup_retention_days' => 30,
 ];
