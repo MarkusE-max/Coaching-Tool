@@ -24,4 +24,9 @@ return [
 
     // Generate a unique 64-character hexadecimal key. Keep it in config.local.php only.
     'mail_encryption_key' => 'REPLACE_WITH_64_HEX_CHAR_PRIVATE_KEY',
+
+    // Optional private backup folder; default: <project>/storage/backups.
+    // Keep backups outside the public web folder and restrict folder access.
+    'backup_storage_path' => '/volume1/private/Coaching-Tool-Backups',
+    'backup_retention_days' => 30,
 ];
