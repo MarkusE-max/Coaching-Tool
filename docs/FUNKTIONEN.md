@@ -4,12 +4,12 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 
 | Nr. | Bereich | Funktion | Stand |
 | --- | --- | --- | --- |
-| F1 | Nutzer und Rollen | Login, Rollen Coach / Klient / Admin / Verwalter, Passwort-Reset | Teilweise umgesetzt: eigener Coachee-Login, Coach kann Passwort neu setzen; Coachee kann es im Portal ändern. Verwalterkonten werden durch Admin angelegt; Verwalter allein dürfen Klienten Coaches zuordnen. Admin-Reset für Coachees fehlt. |
+| F1 | Nutzer und Rollen | Login, Rollen Coach / Klient / Admin / Verwalter, Passwort-Reset | Umgesetzt, sofern SMTP eingerichtet und eine gültige E-Mail am Konto hinterlegt ist: Coach, Admin, Verwalter und Coachee können einen einmaligen 60-Minuten-Rücksetzlink anfordern. SMTP-Konfiguration ist adminverwaltet; Coachee-E-Mail wird in der Zugangspflege erfasst. Manuelles Setzen eines Coachee-Passworts bleibt ebenfalls möglich. |
 | F2 | Klientenverwaltung | Klientenstammdaten, Status (aktiv/pausiert/abgeschlossen) | Teilweise: Coaches sehen eigene Klienten; Admin kann Stammdaten ansehen, aber nicht zuordnen; Verwalter kann Stammdaten und Coach-Zuordnung verwalten. Coach-Wechsel werden protokolliert. |
 | F3 | Termine | Termine pro Klient anlegen, bearbeiten, Verlauf | Umgesetzt: Anlage, Bearbeitung und Verlauf; Rechte werden anhand der Klientenzuordnung geprüft. Aus Dashboard und Klientenakte ist die jeweilige Klientenakte direkt erreichbar; Termine können dort mit vorausgewähltem Klienten neu angelegt werden. |
 | F4 | Stream | Gemeinsamer Nachrichtenverlauf Coach ↔ Klient, Dateianhänge | Im Code umgesetzt: Coach und Coachee können in der Klientenakte bzw. im Portal schreiben und PDF/JPG/PNG anhängen; Dateien liegen privat und werden rollen- und klientengebunden ausgeliefert. Synology-Funktionstest steht aus. |
 | F5 | Aufgaben | Übungen/Aktionen mit Fälligkeit und Status | Teilweise umgesetzt: Coach legt Aufgaben mit Fälligkeit an; Coachee aktualisiert den Status. Bearbeitung und Erinnerungen fehlen noch. |
-| F6 | Erinnerungen | Automatische E-Mail-Erinnerungen zu Aufgaben | Geplant: benötigt SMTP-Konfiguration, zeitgesteuerten DSM-Aufruf und Versandprotokoll. |
+| F6 | Erinnerungen | Automatische E-Mail-Erinnerungen zu Aufgaben | SMTP-Versand ist verfügbar. Automatische Aufgaben-Erinnerungen sind noch geplant und benötigen zusätzlich einen zeitgesteuerten DSM-Aufruf sowie Versandprotokoll. |
 | F7 | Private Notizen | Nur für Coach sichtbar, durchsuchbar | Umgesetzt: private Notizen sind coachgebunden, optional mit Termin und einem für den Coach sichtbaren Wissensformat verknüpft, durchsuchbar und können Vorher-/Nachher-Werte von -10 bis +10 enthalten; Klient, Admin und Verwalter erhalten keinen Zugriff. |
 | F8 | Dokumente und Vereinbarungen | Vorlagen griffbereit halten, Klienten zuweisen, ausfüllen/unterschreiben und unterschriebene Fassung beim Klienten speichern | Im Code umgesetzt: geschützter Rücklauf per Scan oder QR-Unterschrift; benötigt Migration 003, HTTPS und Synology-Funktionstest. |
 
@@ -38,3 +38,12 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 ## Datenbankänderung
 
 Migrationen 001 bis 003 ergänzen Notizen/Ziele, Dokumente und QR-Signaturen; Migration 004 ergänzt Status, Migration 005 Portalzugänge, Aufgaben und Darstellungseinstellungen. Migration 007 ergänzt Verwalterrolle, Notiz-Format-Verknüpfung und Auditprotokoll für Coach-Wechsel; Migration 008 ergänzt Vorher-/Nachher-Werte für Sitzungsnotizen. Vor jeder Migration eine Datenbanksicherung erstellen und die Tabellenrechte des Anwendungsbenutzers prüfen.
+
+## SMTP und Passwort-Zurücksetzung
+
+- Administratoren können einen allgemeinen SMTP-Server in `/email-settings.php` eintragen, Verbindung und Zugangsdaten per Testmail prüfen und den Versand aktivieren.
+- Unterstützt werden STARTTLS, SSL/TLS sowie unverschlüsselte Verbindung für ein geschütztes internes Mail-Relay. SMTP-Passwörter werden AES-256-GCM-verschlüsselt in der Datenbank abgelegt; der Schlüssel bleibt ausschließlich in `config.local.php`.
+- `app_base_url` in der privaten Konfiguration muss die HTTPS-Adresse des Coaching Tools enthalten. Diese Adresse wird für Zurücksetzlinks verwendet, nicht der vom Browser übermittelte Hostnamen.
+- Zurücksetzanforderungen verlangen Benutzername und hinterlegte E-Mail-Adresse. Antworten verraten nicht, ob ein Konto gefunden wurde. Tokens werden gehasht gespeichert, laufen nach 60 Minuten ab, sind einmal verwendbar und pro Konto begrenzt.
+- Coach-/Verwalter-/Admin-E-Mails stammen aus `benutzer.email`; Coachees erhalten ihre Adresse über die Zugangspflege. Ohne aktive SMTP-Einstellung oder gültige E-Mail wird kein Link versendet.
+- Die Anwendung verbindet sich per SMTP-Client aus PHP heraus. Für externen Versand müssen DNS, ausgehender Netzwerkzugriff und der SMTP-Port im Synology-Netz verfügbar sein.
