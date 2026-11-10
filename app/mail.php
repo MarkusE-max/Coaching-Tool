@@ -1,13 +1,14 @@
 <?php
 declare(strict_types=1);
 
-function coachingMailSettings(PDO $db): array
+function coachingMailSettings(PDO $db,int $ownerId): array
 {
-    $q=$db->query('SELECT * FROM coaching_email_einstellungen WHERE id=1');
+    $q=$db->prepare('SELECT * FROM coaching_email_einstellungen WHERE benutzer_id=:owner LIMIT 1');
+    $q->execute(['owner'=>$ownerId]);
     return $q->fetch(PDO::FETCH_ASSOC)?:[
         'aktiv'=>0,'smtp_host'=>'','smtp_port'=>587,'smtp_sicherheit'=>'starttls',
         'smtp_auth'=>1,'smtp_benutzername'=>'','smtp_passwort_verschluesselt'=>null,
-        'absender_name'=>'Coaching Tool','absender_email'=>''
+        'absender_name'=>'Coaching Tool','absender_email'=>'','antwort_email'=>null,'antwort_email'=>null
     ];
 }
 
@@ -77,19 +78,20 @@ function coachingSmtpCommand($socket,string $command,array $expected): string
     return coachingSmtpRead($socket,$expected);
 }
 
-function coachingMailSend(PDO $db,string $recipient,string $subject,string $body): void
+function coachingMailSend(PDO $db,int $ownerId,string $recipient,string $subject,string $body): void
 {
     $recipient=trim($recipient);
     if(!filter_var($recipient,FILTER_VALIDATE_EMAIL))throw new InvalidArgumentException('Bitte eine gültige Ziel-E-Mail-Adresse eingeben.');
-    $settings=coachingMailSettings($db);
+    $settings=coachingMailSettings($db,$ownerId);
     if((int)$settings['aktiv']!==1)throw new RuntimeException('Der E-Mail-Versand ist nicht aktiviert.');
     $host=trim((string)$settings['smtp_host']);
     $port=(int)$settings['smtp_port'];
     $security=(string)$settings['smtp_sicherheit'];
     $from=trim((string)$settings['absender_email']);
+    $replyTo=trim((string)($settings['antwort_email']??''))?:$from;
     $fromName=trim((string)$settings['absender_name']);
     if($host===''||strlen($host)>253||!preg_match('/^[A-Za-z0-9.-]+$/',$host)||$port<1||$port>65535
-        ||!in_array($security,['keine','starttls','ssl'],true)||!filter_var($from,FILTER_VALIDATE_EMAIL)){
+        ||!in_array($security,['keine','starttls','ssl'],true)||!filter_var($from,FILTER_VALIDATE_EMAIL)||!filter_var($replyTo,FILTER_VALIDATE_EMAIL)){
         throw new RuntimeException('Die SMTP-Einstellungen sind unvollständig oder ungültig.');
     }
     $auth=(int)$settings['smtp_auth']===1;
@@ -126,7 +128,7 @@ function coachingMailSend(PDO $db,string $recipient,string $subject,string $body
             'Date: '.gmdate('D, d M Y H:i:s').' +0000',
             'From: '.$encodedName.' <'.$from.'>',
             'To: <'.$recipient.'>',
-            'Reply-To: <'.$from.'>',
+            'Reply-To: <'.$replyTo.'>',
             'Subject: '.$encodedSubject,
             'Message-ID: <'.$messageId.'>',
             'MIME-Version: 1.0',
