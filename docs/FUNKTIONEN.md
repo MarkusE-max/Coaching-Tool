@@ -34,7 +34,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 - Jeder Eintrag ist privat, für ausgewählte aktive Coaches lesbar oder für alle aktiven Coaches freigegeben. Freigegebene Einträge sind für andere Coaches nur lesbar.
 - Die Sammlung wird nicht mit vorgefertigten Praxisanleitungen befüllt; Inhalte werden durch die Coaches eingetragen und können Quellenangaben enthalten. Keine Klientenidentifikationsdaten in geteilte Einträge schreiben.
 
-## Zusätzlicher Umfang
+## Datenexport und Aufbewahrung\n\n- Der zuständige Coach kann aus der Klientenakte eine ZIP-Datei mit Stammdaten, direkt verbundenen Coaching-Daten, Rechnungsdaten, privaten Sitzungsnotizen und zugehörigen Dateien abrufen. Zugangspasswort-Hashes, Reset-Tokens, Login-IP-Protokolle sowie coachweite Vorlagen und Einstellungen werden ausgeschlossen. Dafür muss PHP 8.2 die Erweiterung `zip` geladen haben.\n- Vollständige Klientenakten werden nicht automatisch gelöscht. Vor einer Löschung ist die geltende Aufbewahrungspflicht für Rechnungen und Nachweise zu prüfen. Export, Archivierung, Sperrung des Coachee-Zugangs und dokumentierte Löschung sind in `docs/DATENEXPORT_UND_AUFBEWAHRUNG.md` beschrieben.\n\n## Zusätzlicher Umfang
 
 - Termine, Sitzungsnotizen und Ziele hängen an einem Klienten und sind im Verlauf auffindbar. Coaches können aktive Dokumentvorlagen direkt aus der Klientenübersicht zuweisen; die Reihenfolge der Übersichtskarten wird pro Coach gespeichert (Migration 018).
 - Bestehende Einträge sollen über eine Bearbeiten-Funktion änderbar sein.
