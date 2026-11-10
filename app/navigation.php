@@ -50,7 +50,21 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                     </div>
                 </details>
                 <?php if ($role === 'coach'): ?>
+                <details class="sidebar-group"<?= in_array($active, ['notes'], true) ? ' open' : '' ?>>
+                    <summary><span class="sidebar-link-icon" aria-hidden="true">▤</span><span>Dokumentation</span></summary>
+                    <div class="sidebar-submenu">
+                        <a class="sidebar-link<?= $active === 'notes' ? ' is-active' : '' ?>" href="notes.php"<?= $active === 'notes' ? ' aria-current="page"' : '' ?>>Private Sitzungsnotizen</a>
+                    </div>
+                </details>
+                <?php endif; ?>
+                <?php if ($role === 'coach'): ?>
                 <a class="sidebar-link<?= $active === 'invoices' ? ' is-active' : '' ?>" href="invoices.php"<?= $active === 'invoices' ? ' aria-current="page"' : '' ?>><span class="sidebar-link-icon" aria-hidden="true">€</span><span>Rechnungen</span></a>
+                <?php endif; ?>
+                <?php if ($role === 'coach'): ?>
+                <details class="sidebar-group"<?= $knowledgeOpen ? ' open' : '' ?>>
+                    <summary><span class="sidebar-link-icon" aria-hidden="true">▣</span><span>Wissenssammlung</span></summary>
+                    <div class="sidebar-submenu"><a class="sidebar-link<?= $active === 'formats' ? ' is-active' : '' ?>" href="formats.php"<?= $active === 'formats' ? ' aria-current="page"' : '' ?>>Wissensdatenbank</a></div>
+                </details>
                 <?php endif; ?>
                 <details class="sidebar-group"<?= $settingsOpen ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">⚙</span><span>Einstellungen</span></summary>
@@ -65,20 +79,6 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <?php endif; ?>
                     </div>
                 </details>
-                <?php if ($role === 'coach'): ?>
-                <details class="sidebar-group"<?= in_array($active, ['notes'], true) ? ' open' : '' ?>>
-                    <summary><span class="sidebar-link-icon" aria-hidden="true">▤</span><span>Dokumentation</span></summary>
-                    <div class="sidebar-submenu">
-                        <a class="sidebar-link<?= $active === 'notes' ? ' is-active' : '' ?>" href="notes.php"<?= $active === 'notes' ? ' aria-current="page"' : '' ?>>Private Sitzungsnotizen</a>
-                    </div>
-                </details>
-                <?php endif; ?>
-                <?php if ($role === 'coach'): ?>
-                <details class="sidebar-group"<?= $knowledgeOpen ? ' open' : '' ?>>
-                    <summary><span class="sidebar-link-icon" aria-hidden="true">▣</span><span>Wissenssammlung</span></summary>
-                    <div class="sidebar-submenu"><a class="sidebar-link<?= $active === 'formats' ? ' is-active' : '' ?>" href="formats.php"<?= $active === 'formats' ? ' aria-current="page"' : '' ?>>Wissensdatenbank</a></div>
-                </details>
-                <?php endif; ?>
                 <?php if ($isAdmin || $isManager): ?>
                 <details class="sidebar-group"<?= $adminOpen ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">⚙</span><span>Verwaltung</span></summary>
