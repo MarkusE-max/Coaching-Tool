@@ -4,6 +4,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 date_default_timezone_set('Europe/Berlin');
 require_once dirname(__DIR__) . '/app/bootstrap.php';
+require_once dirname(__DIR__) . '/app/document_storage.php';
 
 function backupIdentifier(string $value): string
 {
@@ -18,7 +19,7 @@ function backupSqlValue(PDO $database, mixed $value, string $type): string
         $text = (string) $value;
         if (preg_match('/^-?\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i', $text)) return $text;
     }
-    if (preg_match('/^(bit|binary|varbinary|tinyblob|blob|mediumblob|longblob)/', $type)) return '0x' . bin2hex((string) $value);
+    if (preg_match('/^(bit|binary|varbinary|tinyblob|blob|mediumblob|longblob)/', $type)) return (string) $value === '' ? "''" : '0x' . bin2hex((string) $value);
     return $database->quote((string) $value);
 }
 function backupCopyPrivateFiles(string $source, string $destination): int
@@ -61,8 +62,9 @@ try {
     if (!extension_loaded('zlib')) throw new RuntimeException('PHP zlib is required to create compressed backups.');
 
     $root = dirname(__DIR__);
-    $storagePath = (string) ($config['document_storage_path'] ?? ($root . '/storage/documents'));
+    $storagePath = coachingDocumentStorageRoot();
     $backupPath = (string) ($config['backup_storage_path'] ?? ($root . '/storage/backups'));
+    if (!str_starts_with($backupPath, DIRECTORY_SEPARATOR)) throw new RuntimeException('Backup folder must be an absolute private path.');
     $retentionDays = filter_var($config['backup_retention_days'] ?? 30, FILTER_VALIDATE_INT);
     if ($retentionDays === false || $retentionDays < 7 || $retentionDays > 3650) throw new RuntimeException('Backup retention must be between 7 and 3650 days.');
     $publicRoot = realpath($root . '/public');
@@ -94,7 +96,7 @@ try {
     };
     $write("-- Coaching Tool MariaDB backup\n-- Created: " . date(DATE_ATOM) . "\n-- Database: " . $databaseName . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n");
     $database->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-    $database->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
+    $database->beginTransaction();
     $tables = $database->query('SHOW FULL TABLES')->fetchAll(PDO::FETCH_NUM);
     foreach ($tables as $tableRow) {
         $tableName = (string) ($tableRow[0] ?? '');
