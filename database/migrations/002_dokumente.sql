@@ -61,4 +61,4 @@ CREATE TABLE IF NOT EXISTS coaching_dokumentdateien (
 -- Anwendungsrechte:
 -- coaching_dokumentvorlagen: SELECT, INSERT, UPDATE
 -- coaching_klientendokumente: SELECT, INSERT, UPDATE
--- coaching_dokumentdateien: SELECT, INSERT
+-- coaching_dokumentdateien: SELECT, INSERT, DELETE (DELETE only for removal of uploaded returns)
