@@ -24,7 +24,7 @@ if (!class_exists(ZipArchive::class)) {
     exit('Der Datenexport benötigt die PHP-Erweiterung zip. Bitte aktiviere sie im PHP-8.2-Profil.');
 }
 
-function exportIdentifier(string $value): string
+final class ClientExportException extends RuntimeException {}\n\nfunction exportIdentifier(string $value): string
 {
     return chr(96) . str_replace(chr(96), chr(96) . chr(96), $value) . chr(96);
 }
@@ -73,7 +73,7 @@ try {
         $query = $database->prepare($sql);
         $query->execute($params);
         $rows = $query->fetchAll(PDO::FETCH_ASSOC);
-        if (count($rows) > 20000) throw new RuntimeException('Der Datenbestand ist für einen einzelnen Download zu groß. Bitte wende dich an die Systembetreuung.');
+        if (count($rows) > 20000) throw new ClientExportException('Der Datenbestand ist für einen einzelnen Download zu groß. Bitte wende dich an die Systembetreuung.');
         if ($rows) $records[$table] = $rows;
 
         if ($table === 'coaching_klientendokumente') {
@@ -86,7 +86,7 @@ try {
         $q = $database->prepare('SELECT * FROM coaching_dokumentdateien WHERE coach_benutzer_id=? AND klientendokument_id IN (' . $placeholders . ') ORDER BY id');
         $q->execute(array_merge([$coachId], $documentIds));
         $rows = $q->fetchAll(PDO::FETCH_ASSOC);
-        if (count($rows) > 20000) throw new RuntimeException('Zu viele Dokumentdateien für einen einzelnen Download.');
+        if (count($rows) > 20000) throw new ClientExportException('Zu viele Dokumentdateien für einen einzelnen Download.');
         if ($rows) $records['coaching_dokumentdateien'] = $rows;
     }
 
@@ -118,15 +118,15 @@ try {
     $json = json_encode($records, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
 
     $temporary = tempnam(sys_get_temp_dir(), 'coaching-export-');
-    if (!is_string($temporary)) throw new RuntimeException('Temporäre Exportdatei konnte nicht erstellt werden.');
+    if (!is_string($temporary)) throw new ClientExportException('Temporäre Exportdatei konnte nicht erstellt werden.');
     chmod($temporary, 0600);
     $zip = new ZipArchive();
-    if ($zip->open($temporary, ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Exportarchiv konnte nicht erstellt werden.');
+    if ($zip->open($temporary, ZipArchive::OVERWRITE) !== true) throw new ClientExportException('Exportarchiv konnte nicht erstellt werden.');
     $zip->addFromString('datenexport.json', $json);
     foreach ($fileEntries as $entry) {
-        if (!$zip->addFile($entry['path'], $entry['archive_name'])) throw new RuntimeException('Eine private Datei konnte nicht in den Export aufgenommen werden.');
+        if (!$zip->addFile($entry['path'], $entry['archive_name'])) throw new ClientExportException('Eine private Datei konnte nicht in den Export aufgenommen werden.');
     }
-    if (!$zip->close()) throw new RuntimeException('Exportarchiv konnte nicht abgeschlossen werden.');
+    if (!$zip->close()) throw new ClientExportException('Exportarchiv konnte nicht abgeschlossen werden.');
 
     $name = exportSafeFilename(trim((string) ($client['nachname'] ?? 'klient')) . '-' . trim((string) ($client['vorname'] ?? '')) . '-datenexport-' . date('Y-m-d') . '.zip');
     header('Content-Type: application/zip');
@@ -138,6 +138,6 @@ try {
 } catch (Throwable $error) {
     if (isset($temporary) && is_file($temporary)) @unlink($temporary);
     error_log('Client data export failed: ' . $error->getMessage());
-    http_response_code($error instanceof RuntimeException ? 422 : 500);
-    exit($error instanceof RuntimeException ? $error->getMessage() : 'Der Datenexport konnte nicht erstellt werden.');
+    http_response_code($error instanceof ClientExportException ? 422 : 500);
+    exit($error instanceof ClientExportException ? $error->getMessage() : 'Der Datenexport konnte nicht erstellt werden.');
 }
