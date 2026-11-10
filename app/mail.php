@@ -196,13 +196,13 @@ function coachingMailSendCoacheeInvitation(PDO $db, int $coachId, int $portalId)
     $resetId = (int) $db->lastInsertId();
     $loginUrl = $baseUrl . '/';
     $setPasswordUrl = $baseUrl . '/password-reset.php?token=' . $rawToken;
-    $body = "Hallo,\\n\\n"
-        . "dein Zugang zum Coaching Tool ist eingerichtet.\\n\\n"
-        . "Benutzername: " . (string) $account['benutzername'] . "\\n"
-        . "Anmeldung: " . $loginUrl . "\\n\\n"
-        . "Lege über diesen einmaligen Link dein persönliches Passwort fest:\\n"
-        . $setPasswordUrl . "\\n\\n"
-        . "Der Link ist 60 Minuten gültig. Falls du diese Nachricht nicht erwartet hast, wende dich bitte an deinen Coach.\\n";
+    $body = "Hallo,\n\n"
+        . "dein Zugang zum Coaching Tool ist eingerichtet.\n\n"
+        . "Benutzername: " . (string) $account['benutzername'] . "\n"
+        . "Anmeldung: " . $loginUrl . "\n\n"
+        . "Lege über diesen einmaligen Link dein persönliches Passwort fest:\n"
+        . $setPasswordUrl . "\n\n"
+        . "Der Link ist 60 Minuten gültig. Falls du diese Nachricht nicht erwartet hast, wende dich bitte an deinen Coach.\n";
     try {
         coachingMailSend($db, $coachId, $email, 'Dein Zugang zum Coaching Tool', $body);
         $invalidate = $db->prepare(
