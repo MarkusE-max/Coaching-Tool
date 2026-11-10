@@ -260,6 +260,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                     <button class="primary-button" type="submit">Anmelden</button>
                 </form>
                 <p class="login-note">Nach fünf falschen Versuchen wird die Anmeldung für die IP-Adresse 15 Minuten pausiert.</p>
+                <p class="login-note"><a href="forgot-password.php">Passwort vergessen?</a></p>
                 <?php if ($noUsers): ?>
                     <p class="login-note"><a href="setup-admin.php">Ersten Administrator sicher einrichten</a></p>
                 <?php endif; ?>
