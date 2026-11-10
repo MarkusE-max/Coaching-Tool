@@ -26,19 +26,16 @@ try{
   $q->execute(['id'=>$id,'coach'=>$coach,'owner'=>$coach]);
   $logo=$q->fetch(PDO::FETCH_ASSOC);
  }
+ if(!$settingsPreview&&$logo&&empty($logo['logo_speicher_schluessel'])){
+  $fallback=$db->prepare('SELECT logo_speicher_schluessel,logo_mime FROM coaching_rechnungseinstellungen WHERE coach_benutzer_id=:coach');
+  $fallback->execute(['coach'=>$coach]);
+  $currentLogo=$fallback->fetch(PDO::FETCH_ASSOC);
+  if($currentLogo&&$currentLogo['logo_speicher_schluessel'])$logo=$currentLogo;
+ }
  if(!$logo||!$logo['logo_speicher_schluessel']||!in_array($logo['logo_mime'],['image/jpeg','image/png'],true)){
   http_response_code(404);exit('Logo nicht gefunden.');
  }
- try{
-  $path=coachingResolveDocumentFile((string)$logo['logo_speicher_schluessel'],(string)$logo['logo_mime']);
- }catch(Throwable $snapshotError){
-  if($settingsPreview)throw $snapshotError;
-  $fallback=$db->prepare('SELECT logo_speicher_schluessel,logo_mime FROM coaching_rechnungseinstellungen WHERE coach_benutzer_id=:coach');
-  $fallback->execute(['coach'=>$coach]);
-  $logo=$fallback->fetch(PDO::FETCH_ASSOC);
-  if(!$logo||!$logo['logo_speicher_schluessel']||!in_array($logo['logo_mime'],['image/jpeg','image/png'],true))throw $snapshotError;
-  $path=coachingResolveDocumentFile((string)$logo['logo_speicher_schluessel'],(string)$logo['logo_mime']);
- }
+ $path=coachingResolveDocumentFile((string)$logo['logo_speicher_schluessel'],(string)$logo['logo_mime']);
  header('Content-Type: '.$logo['logo_mime']);
  header('Content-Length: '.(string)filesize($path));
  header('Content-Disposition: inline; filename="coach-logo"');
