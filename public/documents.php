@@ -270,7 +270,7 @@ try {
     $error = $exception->getMessage();
 } catch (Throwable $exception) {
     error_log('Coaching Tool document operation failed: ' . $exception->getMessage());
-    $error = 'Das Dokument konnte nicht gespeichert werden. Prüfe SQL-Migration, Tabellenrechte und Schreibrechte des privaten Speicherordners.';
+    $error = 'Das Dokument konnte nicht gespeichert oder gelöscht werden. Prüfe Tabellenrechte und Schreibrechte des privaten Speicherordners.';
 }
 
 $templatesQuery = $database->prepare('SELECT id, titel, kategorie, version, originalname, groesse_bytes, erstellt_am FROM coaching_dokumentvorlagen WHERE coach_benutzer_id = :coach AND aktiv = 1 ORDER BY titel, version DESC');
@@ -357,7 +357,7 @@ $formatBytes = static function (int $bytes): string {
 <section class="document-card document-list">
 <div class="document-row-top"><h2>Vorlagen (<?= count($templates) ?>)</h2></div>
 <?php if ($templates === []): ?><p class="document-empty">Noch keine Vorlagen vorhanden.</p><?php else: ?>
-<?php foreach ($templates as $template): ?><article class="document-row"><div class="document-row-top"><strong><?= documentH($template['titel']) ?> <span class="document-chip">Version <?= documentH($template['version']) ?></span></strong><a href="document-download.php?type=template&id=<?= documentH($template['id']) ?>">PDF herunterladen</a></div><div class="document-meta"><?= documentH($template['kategorie']) ?> · <?= documentH($template['originalname']) ?> · <?= documentH($formatBytes((int) $template['groesse_bytes'])) ?> · <?= documentH(date('d.m.Y', strtotime($template['erstellt_am']))) ?></div><form method="post" class="document-delete-form" onsubmit="return confirm('Vorlage aus der aktiven Liste entfernen? Falls sie bereits zugewiesen wurde, bleibt sie für diese Klientendokumente erhalten.');"><input type="hidden" name="csrf_token" value="<?= documentH($token) ?>"><input type="hidden" name="action" value="delete_template"><input type="hidden" name="vorlage_id" value="<?= (int) $template['id'] ?>"><button class="document-button secondary danger" type="submit">Vorlage entfernen</button></form></article><?php endforeach; ?>
+<?php foreach ($templates as $template): ?><article class="document-row"><div class="document-row-top"><strong><?= documentH($template['titel']) ?> <span class="document-chip">Version <?= documentH($template['version']) ?></span></strong><a href="document-download.php?type=template&id=<?= documentH($template['id']) ?>">PDF herunterladen</a></div><div class="document-meta"><?= documentH($template['kategorie']) ?> · <?= documentH($template['originalname']) ?> · <?= documentH($formatBytes((int) $template['groesse_bytes'])) ?> · <?= documentH(date('d.m.Y', strtotime($template['erstellt_am']))) ?></div><form method="post" class="document-delete-form" onsubmit="return confirm('Vorlage löschen? Falls sie bereits zugewiesen wurde, wird sie nur aus der aktiven Liste entfernt, damit Klientendokumente erhalten bleiben.');"><input type="hidden" name="csrf_token" value="<?= documentH($token) ?>"><input type="hidden" name="action" value="delete_template"><input type="hidden" name="vorlage_id" value="<?= (int) $template['id'] ?>"><button class="document-button secondary danger" type="submit">Vorlage löschen</button></form></article><?php endforeach; ?>
 <?php endif; ?>
 </section>
 <section class="document-card document-list">
