@@ -14,7 +14,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $roleLabel = $isAdmin ? 'Administrator' : ($isManager ? 'Verwalter' : 'Coach');
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
-    $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements', 'invoices', 'invoice-settings'], true);
+    $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements', 'invoices', 'invoice-settings', 'email-settings'], true);
     $managerOpen = $active === 'managers';
     $docsOpen = in_array($active, ['notes', 'documents'], true);
     $designOpen = $active === 'design';
@@ -48,7 +48,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <a class="sidebar-link<?= $active === 'appointments' ? ' is-active' : '' ?>" href="appointments.php"<?= $active === 'appointments' ? ' aria-current="page"' : '' ?>>Termine</a>
                         <a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a>
                         <?php endif; ?>
-                        <?php if ($role === 'coach'): ?><a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a><a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Coaching-Aufträge</a><a class="sidebar-link<?= $active === 'invoices' ? ' is-active' : '' ?>" href="invoices.php"<?= $active === 'invoices' ? ' aria-current="page"' : '' ?>>Rechnungen</a><a class="sidebar-link<?= $active === 'invoice-settings' ? ' is-active' : '' ?>" href="invoice-settings.php"<?= $active === 'invoice-settings' ? ' aria-current="page"' : '' ?>>Rechnungseinstellungen</a><?php endif; ?>
+                        <?php if ($role === 'coach'): ?><a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a><a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Coaching-Aufträge</a><a class="sidebar-link<?= $active === 'invoices' ? ' is-active' : '' ?>" href="invoices.php"<?= $active === 'invoices' ? ' aria-current="page"' : '' ?>>Rechnungen</a><a class="sidebar-link<?= $active === 'invoice-settings' ? ' is-active' : '' ?>" href="invoice-settings.php"<?= $active === 'invoice-settings' ? ' aria-current="page"' : '' ?>>Rechnungseinstellungen</a><a class="sidebar-link<?= $active === 'email-settings' ? ' is-active' : '' ?>" href="email-settings.php"<?= $active === 'email-settings' ? ' aria-current="page"' : '' ?>>E-Mail & Passwort-Reset</a><?php endif; ?>
                     </div>
                 </details>
                 <?php if ($role === 'coach'): ?>
@@ -77,8 +77,8 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <?php if ($isAdmin): ?>
                         <a class="sidebar-link<?= $active === 'coaches' ? ' is-active' : '' ?>" href="coaches.php"<?= $active === 'coaches' ? ' aria-current="page"' : '' ?>>Coach-Konten</a>
                         <a class="sidebar-link<?= $active === 'managers' ? ' is-active' : '' ?>" href="managers.php"<?= $active === 'managers' ? ' aria-current="page"' : '' ?>>Verwalterkonten</a>
-                        <a class="sidebar-link<?= $active === 'email-settings' ? ' is-active' : '' ?>" href="email-settings.php"<?= $active === 'email-settings' ? ' aria-current="page"' : '' ?>>E-Mail & Passwort-Reset</a>
                         <?php endif; ?>
+                        <a class="sidebar-link<?= $active === 'email-settings' ? ' is-active' : '' ?>" href="email-settings.php"<?= $active === 'email-settings' ? ' aria-current="page"' : '' ?>>Meine E-Mail & Passwort-Reset</a>
                         <a class="sidebar-link<?= $active === 'format-categories' ? ' is-active' : '' ?>" href="format-categories.php"<?= $active === 'format-categories' ? ' aria-current="page"' : '' ?>>Wissenskategorien</a>
                     </div>
                 </details>
