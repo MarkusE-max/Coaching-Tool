@@ -24,7 +24,9 @@ if (!class_exists(ZipArchive::class)) {
     exit('Der Datenexport benötigt die PHP-Erweiterung zip. Bitte aktiviere sie im PHP-8.2-Profil.');
 }
 
-final class ClientExportException extends RuntimeException {}\n\nfunction exportIdentifier(string $value): string
+final class ClientExportException extends RuntimeException {}
+
+function exportIdentifier(string $value): string
 {
     return chr(96) . str_replace(chr(96), chr(96) . chr(96), $value) . chr(96);
 }
