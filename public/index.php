@@ -158,6 +158,7 @@ if ($currentUser !== null && ($currentUser['role'] ?? '') === 'client') {
 
 $clients = [];
 $appointments = [];
+$activities = [];
 $dashboardError = '';
 if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
     try {
@@ -196,6 +197,19 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
         }
         $clients = $clientQuery->fetchAll();
         $appointments = $appointmentQuery->fetchAll();
+        if (($currentUser['role'] ?? '') === 'coach') {
+            $activityQuery = $database->prepare(
+                'SELECT a.klient_id, a.ereignistyp, a.objekt_titel, a.status_vorher, a.status_nachher, a.erstellt_am,
+                        k.vorname, k.nachname
+                 FROM coaching_aktivitaeten a
+                 INNER JOIN klienten k ON k.id = a.klient_id AND k.benutzer_id = a.coach_benutzer_id
+                 WHERE a.coach_benutzer_id = :coach AND a.gelesen_am IS NULL
+                 ORDER BY a.erstellt_am DESC, a.id DESC
+                 LIMIT 20'
+            );
+            $activityQuery->execute(['coach' => (int) $currentUser['id']]);
+            $activities = $activityQuery->fetchAll();
+        }
     } catch (Throwable $error) {
         $dashboardError = 'Die Übersicht konnte nicht geladen werden.';
     }
@@ -302,6 +316,26 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                             </ul>
                         <?php endif; ?>
                     </section>
+
+                    <?php if ($currentUser['role'] === 'coach'): ?>
+                    <section class="data-card">
+                        <div class="card-heading"><h2>Neue Aktivitäten</h2><span><?= count($activities) ?></span></div>
+                        <?php if ($activities === []): ?>
+                            <p class="empty-state">Keine neuen Nachrichten oder Aufgabenänderungen.</p>
+                        <?php else: ?>
+                            <ul class="appointment-list">
+                                <?php foreach ($activities as $activity): ?>
+                                    <?php $isMessage = $activity['ereignistyp'] === 'coachee_nachricht'; ?>
+                                    <li>
+                                        <strong><a href="client-overview.php?id=<?= h($activity['klient_id']) ?>#<?= $isMessage ? 'messages' : 'tasks' ?>"><?= h($activity['vorname'] . ' ' . $activity['nachname']) ?></a></strong>
+                                        <small><?php if ($isMessage): ?>Neue Nachricht vom Coachee<?php else: ?>Aufgabe „<?= h($activity['objekt_titel']) ?>“: <?= h($activity['status_vorher'] ?? '') ?> → <?= h($activity['status_nachher'] ?? '') ?><?php endif; ?></small>
+                                        <time><?= h(date('d.m.Y · H:i', strtotime($activity['erstellt_am']))) ?></time>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                    </section>
+                    <?php endif; ?>
 
                     <?php if ($currentUser['role'] !== 'verwalter'): ?><section class="data-card">
                         <div class="card-heading"><h2>Anstehende Termine</h2><span><?= count($appointments) ?></span></div>
