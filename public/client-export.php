@@ -15,9 +15,14 @@ if (!is_array($user) || ($user['role'] ?? '') !== 'coach' || !isset($user['id'])
     http_response_code(403);
     exit('Der Datenexport ist nur für den zuständigen Coach verfügbar.');
 }
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     exit('Methode nicht unterstützt.');
+}
+$sessionToken = $_SESSION['csrf_token'] ?? '';
+if (!is_string($sessionToken) || !hash_equals($sessionToken, (string) ($_POST['csrf_token'] ?? ''))) {
+    http_response_code(400);
+    exit('Ungültige Anfrage. Bitte lade die Klientenakte neu.');
 }
 if (!class_exists(ZipArchive::class)) {
     http_response_code(503);
@@ -40,7 +45,7 @@ function exportSafeFilename(string $name): string
 try {
     $database = coachingDatabase();
     $coachId = (int) $user['id'];
-    $clientId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+    $clientId = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
     if ($clientId === false || $clientId === null || $clientId < 1) {
         http_response_code(400);
         exit('Ungültiger Klient.');
@@ -53,7 +58,7 @@ try {
         exit('Klient nicht gefunden oder kein Zugriff.');
     }
 
-    $excluded = ['coaching_portal_zugaenge', 'coaching_passwort_resets', 'login_versuche'];
+    $excluded = ['coaching_passwort_resets', 'login_versuche'];
     $tables = $database->query('SHOW FULL TABLES')->fetchAll(PDO::FETCH_NUM);
     $records = ['klienten' => [$client]];
     $documentIds = [];
@@ -90,6 +95,26 @@ try {
         $rows = $q->fetchAll(PDO::FETCH_ASSOC);
         if (count($rows) > 20000) throw new ClientExportException('Zu viele Dokumentdateien für einen einzelnen Download.');
         if ($rows) $records['coaching_dokumentdateien'] = $rows;
+    }
+
+    if (in_array('coaching_portal_zugaenge', array_column($tables, 0), true)) {
+        $portalColumns = $database->query('SHOW COLUMNS FROM coaching_portal_zugaenge')->fetchAll(PDO::FETCH_ASSOC);
+        $safePortalNames = array_values(array_filter(
+            array_map(static fn(array $column): string => (string) $column['Field'], $portalColumns),
+            static fn(string $name): bool => !preg_match('/pass|password|token|secret|hash/i', $name)
+        ));
+        if ($safePortalNames !== [] && in_array('klient_id', $safePortalNames, true)) {
+            $portalSql = 'SELECT ' . implode(',', array_map('exportIdentifier', $safePortalNames)) . ' FROM coaching_portal_zugaenge WHERE klient_id=:client';
+            $portalParams = ['client' => (int) $clientId];
+            if (in_array('coach_benutzer_id', $safePortalNames, true)) {
+                $portalSql .= ' AND coach_benutzer_id=:coach';
+                $portalParams['coach'] = $coachId;
+            }
+            $portalQuery = $database->prepare($portalSql);
+            $portalQuery->execute($portalParams);
+            $portalAccess = $portalQuery->fetchAll(PDO::FETCH_ASSOC);
+            if ($portalAccess) $records['coaching_portal_zugaenge'] = $portalAccess;
+        }
     }
 
     $storageRoot = coachingDocumentStorageRoot();
