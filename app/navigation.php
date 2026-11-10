@@ -14,12 +14,10 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $roleLabel = $isAdmin ? 'Administrator' : ($isManager ? 'Verwalter' : 'Coach');
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
-    $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements', 'invoices', 'invoice-settings', 'email-settings'], true);
-    $managerOpen = $active === 'managers';
-    $docsOpen = in_array($active, ['notes', 'documents'], true);
-    $designOpen = $active === 'design';
+    $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements'], true);
+    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents'], true);
     $knowledgeOpen = in_array($active, ['formats', 'format-categories'], true);
-    $adminOpen = in_array($active, ['coaches', 'managers', 'format-categories', 'email-settings'], true);
+    $adminOpen = in_array($active, ['coaches', 'managers', 'format-categories'], true);
     require_once dirname(__DIR__) . '/app/theme.php';
     $themeDatabase = coachingDatabase();
     echo '<style>' . coachingThemeCss($themeDatabase, (int) $user['id']) . '</style>';
@@ -48,22 +46,33 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <a class="sidebar-link<?= $active === 'appointments' ? ' is-active' : '' ?>" href="appointments.php"<?= $active === 'appointments' ? ' aria-current="page"' : '' ?>>Termine</a>
                         <a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a>
                         <?php endif; ?>
-                        <?php if ($role === 'coach'): ?><a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a><a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Coaching-Aufträge</a><a class="sidebar-link<?= $active === 'invoices' ? ' is-active' : '' ?>" href="invoices.php"<?= $active === 'invoices' ? ' aria-current="page"' : '' ?>>Rechnungen</a><a class="sidebar-link<?= $active === 'invoice-settings' ? ' is-active' : '' ?>" href="invoice-settings.php"<?= $active === 'invoice-settings' ? ' aria-current="page"' : '' ?>>Rechnungseinstellungen</a><a class="sidebar-link<?= $active === 'email-settings' ? ' is-active' : '' ?>" href="email-settings.php"<?= $active === 'email-settings' ? ' aria-current="page"' : '' ?>>E-Mail & Passwort-Reset</a><?php endif; ?>
+                        <?php if ($role === 'coach'): ?><a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a><a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Coaching-Aufträge</a><?php endif; ?>
                     </div>
                 </details>
                 <?php if ($role === 'coach'): ?>
-                <details class="sidebar-group"<?= $docsOpen ? ' open' : '' ?>>
+                <a class="sidebar-link<?= $active === 'invoices' ? ' is-active' : '' ?>" href="invoices.php"<?= $active === 'invoices' ? ' aria-current="page"' : '' ?>><span class="sidebar-link-icon" aria-hidden="true">€</span><span>Rechnungen</span></a>
+                <?php endif; ?>
+                <details class="sidebar-group"<?= $settingsOpen ? ' open' : '' ?>>
+                    <summary><span class="sidebar-link-icon" aria-hidden="true">⚙</span><span>Einstellungen</span></summary>
+                    <div class="sidebar-submenu">
+                        <?php if ($role === 'coach'): ?>
+                        <a class="sidebar-link<?= $active === 'invoice-settings' ? ' is-active' : '' ?>" href="invoice-settings.php"<?= $active === 'invoice-settings' ? ' aria-current="page"' : '' ?>>Rechnungseinstellungen</a>
+                        <?php endif; ?>
+                        <a class="sidebar-link<?= $active === 'email-settings' ? ' is-active' : '' ?>" href="email-settings.php"<?= $active === 'email-settings' ? ' aria-current="page"' : '' ?>>E-Mail & Passwort-Reset</a>
+                        <a class="sidebar-link<?= $active === 'design' ? ' is-active' : '' ?>" href="design-settings.php"<?= $active === 'design' ? ' aria-current="page"' : '' ?>>Schrift und Farben</a>
+                        <?php if ($role === 'coach'): ?>
+                        <a class="sidebar-link<?= $active === 'documents' ? ' is-active' : '' ?>" href="documents.php"<?= $active === 'documents' ? ' aria-current="page"' : '' ?>>Dokumente</a>
+                        <?php endif; ?>
+                    </div>
+                </details>
+                <?php if ($role === 'coach'): ?>
+                <details class="sidebar-group"<?= in_array($active, ['notes'], true) ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">▤</span><span>Dokumentation</span></summary>
                     <div class="sidebar-submenu">
                         <a class="sidebar-link<?= $active === 'notes' ? ' is-active' : '' ?>" href="notes.php"<?= $active === 'notes' ? ' aria-current="page"' : '' ?>>Private Sitzungsnotizen</a>
-                        <a class="sidebar-link<?= $active === 'documents' ? ' is-active' : '' ?>" href="documents.php"<?= $active === 'documents' ? ' aria-current="page"' : '' ?>>Dokumente</a>
                     </div>
                 </details>
                 <?php endif; ?>
-                <details class="sidebar-group"<?= $designOpen ? ' open' : '' ?>>
-                    <summary><span class="sidebar-link-icon" aria-hidden="true">◐</span><span>Darstellung</span></summary>
-                    <div class="sidebar-submenu"><a class="sidebar-link<?= $active === 'design' ? ' is-active' : '' ?>" href="design-settings.php"<?= $active === 'design' ? ' aria-current="page"' : '' ?>>Schrift und Farben</a></div>
-                </details>
                 <?php if ($role === 'coach'): ?>
                 <details class="sidebar-group"<?= $knowledgeOpen ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">▣</span><span>Wissenssammlung</span></summary>
