@@ -18,4 +18,10 @@ return [
     // Generate a random key of at least 32 characters for first-admin setup.
     // Remove this entry after creating the first account.
     'initial_admin_setup_key' => 'REPLACE_WITH_STRONG_PRIVATE_SETUP_KEY',
+
+    // Set the HTTPS address used for password-reset links (including any subfolder).
+    'app_base_url' => 'https://coaching.example.de',
+
+    // Generate a unique 64-character hexadecimal key. Keep it in config.local.php only.
+    'mail_encryption_key' => 'REPLACE_WITH_64_HEX_CHAR_PRIVATE_KEY',
 ];
