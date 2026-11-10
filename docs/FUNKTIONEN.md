@@ -40,7 +40,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 - Bestehende Einträge sollen über eine Bearbeiten-Funktion änderbar sein.
 - Ziele erhalten Beschreibung, Erfolgskriterium, Zieltermin und Status.
 - Private Sitzungsnotizen bleiben ausschließlich für den zuständigen Coach sichtbar. Admin-Rechte gewähren keinen pauschalen Zugriff auf private Notizen.
-- Nicht als umgesetzt markierte Anforderungen bleiben offen und werden schrittweise ergänzt.
+- Nicht als umgesetzt markierte Anforderungen bleiben offen und werden schrittweise ergänzt. Die statische Rechnungsprüfung und der NAS-Testumfang stehen in `docs/RECHNUNGSPRUEFUNG.md`.
 
 ## Datenbankänderung
 
