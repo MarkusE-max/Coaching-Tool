@@ -23,6 +23,11 @@ function coachingSchemaStatus(PDO $database): array
         ? $database->query('SHOW COLUMNS FROM coaching_portal_zugaenge')->fetchAll(PDO::FETCH_COLUMN)
         : [];
     $missingPortalColumns = array_values(array_diff($requiredPortalColumns, $portalColumns));
+    $requiredMessageColumns = ['coachee_gelesen_am'];
+    $messageColumns = in_array('coaching_nachrichten', $existing, true)
+        ? $database->query('SHOW COLUMNS FROM coaching_nachrichten')->fetchAll(PDO::FETCH_COLUMN)
+        : [];
+    $missingMessageColumns = array_values(array_diff($requiredMessageColumns, $messageColumns));
     $invoiceColumns = in_array('coaching_rechnungen', $existing, true)
         ? $database->query('SHOW COLUMNS FROM coaching_rechnungen')->fetchAll(PDO::FETCH_COLUMN)
         : [];
@@ -33,7 +38,7 @@ function coachingSchemaStatus(PDO $database): array
     $missingNoteColumns = array_values(array_diff($requiredNoteColumns, $noteColumns));
 
     return [
-        'ready' => $missing === [] && $missingNoteColumns === [] && $missingInvoiceColumns === [] && $missingInvoiceSettingsColumns === [] && $missingPortalColumns === [] && $missingEmailSettingsColumns === [],
+        'ready' => $missing === [] && $missingNoteColumns === [] && $missingInvoiceColumns === [] && $missingInvoiceSettingsColumns === [] && $missingPortalColumns === [] && $missingEmailSettingsColumns === [] && $missingMessageColumns === [],
         'required_tables' => $required,
         'missing_tables' => $missing,
         'required_note_columns' => $requiredNoteColumns,
@@ -44,6 +49,8 @@ function coachingSchemaStatus(PDO $database): array
         'missing_invoice_settings_columns' => $missingInvoiceSettingsColumns,
         'required_portal_columns' => $requiredPortalColumns,
         'missing_portal_columns' => $missingPortalColumns,
+        'required_message_columns' => $requiredMessageColumns,
+        'missing_message_columns' => $missingMessageColumns,
         'required_email_settings_columns' => $requiredEmailSettingsColumns,
         'missing_email_settings_columns' => $missingEmailSettingsColumns,
     ];
