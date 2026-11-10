@@ -30,7 +30,7 @@ $query = $db->prepare(
      INNER JOIN benutzer b ON b.id = a.coach_benutzer_id AND b.rolle = 'coach' AND b.aktiv = 1
      INNER JOIN coaching_portal_zugaenge p ON p.klient_id = a.klient_id AND p.aktiv = 1
      INNER JOIN coaching_email_einstellungen e ON e.benutzer_id = a.coach_benutzer_id AND e.aktiv = 1
-     LEFT JOIN coaching_aufgaben_erinnerung_status s ON s.aufgabe_id = a.id
+     LEFT JOIN coaching_aufgaben_erinnerung_status s ON s.portal_id = p.id
      WHERE a.status <> 'erledigt'
        AND a.klient_sichtbar = 1
        AND a.faellig_am IS NOT NULL
@@ -86,13 +86,11 @@ foreach ($eligibleByPortal as $portalId => $reminder) {
     $db->beginTransaction();
     try {
         $markAttempt = $db->prepare(
-            'INSERT INTO coaching_aufgaben_erinnerung_status (aufgabe_id,zuletzt_versendet_am,zuletzt_versucht_am)
-             VALUES (:task,NULL,:today)
+            'INSERT INTO coaching_aufgaben_erinnerung_status (portal_id,zuletzt_versendet_am,zuletzt_versucht_am)
+             VALUES (:portal,NULL,:today)
              ON DUPLICATE KEY UPDATE zuletzt_versucht_am=VALUES(zuletzt_versucht_am)'
         );
-        foreach ($reminder['task_ids'] as $taskId) {
-            $markAttempt->execute(['task' => $taskId, 'today' => $today]);
-        }
+        $markAttempt->execute(['portal' => (int) $portalId, 'today' => $today]);
         $db->commit();
     } catch (Throwable $error) {
         if ($db->inTransaction()) {
@@ -112,11 +110,9 @@ foreach ($eligibleByPortal as $portalId => $reminder) {
         $markSent = $db->prepare(
             'UPDATE coaching_aufgaben_erinnerung_status
              SET zuletzt_versendet_am=NOW()
-             WHERE aufgabe_id=:task'
+             WHERE portal_id=:portal'
         );
-        foreach ($reminder['task_ids'] as $taskId) {
-            $markSent->execute(['task' => $taskId]);
-        }
+        $markSent->execute(['portal' => (int) $portalId]);
         $sent++;
     } catch (Throwable $error) {
         error_log('Task reminder delivery failed for portal ' . (int) $portalId . ': ' . $error->getMessage());
