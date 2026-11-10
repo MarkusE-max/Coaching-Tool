@@ -13,17 +13,17 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  $username=trim((string)($_POST['username']??''));$email=trim((string)($_POST['email']??''));
  if(strlen($username)<=80&&filter_var($email,FILTER_VALIDATE_EMAIL)){
   try{
-   $accountType='';$accountId=0;$registeredEmail='';
+   $accountType='';$accountId=0;$registeredEmail='';$mailOwnerId=0;
    $q=$db->prepare('SELECT id,email FROM benutzer WHERE benutzername=:username AND email=:email AND aktiv=1 LIMIT 1');
    $q->execute(['username'=>$username,'email'=>$email]);$account=$q->fetch(PDO::FETCH_ASSOC);
-   if($account){$accountType='benutzer';$accountId=(int)$account['id'];$registeredEmail=(string)$account['email'];}
+   if($account){$accountType='benutzer';$accountId=(int)$account['id'];$mailOwnerId=$accountId;$registeredEmail=(string)$account['email'];}
    else{
-    $q=$db->prepare('SELECT id,email FROM coaching_portal_zugaenge WHERE benutzername=:username AND email=:email AND aktiv=1 LIMIT 1');
+    $q=$db->prepare("SELECT p.id,p.email,k.benutzer_id AS mail_owner_id FROM coaching_portal_zugaenge p INNER JOIN klienten k ON k.id=p.klient_id INNER JOIN benutzer b ON b.id=k.benutzer_id AND b.rolle='coach' AND b.aktiv=1 WHERE p.benutzername=:username AND p.email=:email AND p.aktiv=1 LIMIT 1");
     $q->execute(['username'=>$username,'email'=>$email]);$account=$q->fetch(PDO::FETCH_ASSOC);
-    if($account){$accountType='coachee';$accountId=(int)$account['id'];$registeredEmail=(string)$account['email'];}
+    if($account){$accountType='coachee';$accountId=(int)$account['id'];$mailOwnerId=(int)$account['mail_owner_id'];$registeredEmail=(string)$account['email'];}
    }
-   $baseUrl=coachingMailAppBaseUrl();$mailSettings=coachingMailSettings($db);
-   if($accountId>0&&$baseUrl!==null&&(int)$mailSettings['aktiv']===1){
+   $baseUrl=coachingMailAppBaseUrl();$mailSettings=$mailOwnerId>0?coachingMailSettings($db,$mailOwnerId):[];
+   if($accountId>0&&$mailOwnerId>0&&$baseUrl!==null&&(int)$mailSettings['aktiv']===1){
     $limit=$db->prepare('SELECT COUNT(*) FROM coaching_passwort_resets WHERE konto_typ=:type AND konto_id=:id AND erstellt_am>=NOW()-INTERVAL 1 HOUR');
     $limit->execute(['type'=>$accountType,'id'=>$accountId]);
     if((int)$limit->fetchColumn()<3){
@@ -33,7 +33,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
      $insert->execute(['type'=>$accountType,'id'=>$accountId,'hash'=>$tokenHash]);$resetId=(int)$db->lastInsertId();
      $url=$baseUrl.'/password-reset.php?token='.$rawToken;
      $body="Guten Tag,\n\nüber diesen einmaligen Link kannst du ein neues Passwort für dein Coaching Tool Konto festlegen:\n".$url."\n\nDer Link ist 60 Minuten gültig. Falls du diese E-Mail nicht angefordert hast, kannst du sie ignorieren.\n";
-     try{coachingMailSend($db,$registeredEmail,'Passwort für das Coaching Tool zurücksetzen',$body);}
+     try{coachingMailSend($db,$mailOwnerId,$registeredEmail,'Passwort für das Coaching Tool zurücksetzen',$body);}
      catch(Throwable $sendError){$remove=$db->prepare('DELETE FROM coaching_passwort_resets WHERE id=:id');$remove->execute(['id'=>$resetId]);error_log('Password reset delivery failed: '.$sendError->getMessage());}
     }
    }
