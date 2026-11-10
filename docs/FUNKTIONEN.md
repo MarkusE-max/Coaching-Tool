@@ -16,6 +16,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 ## Dokumentenablauf (F8)
 
 - Coaches verwalten eigene Vorlagen, zum Beispiel Coaching-Vertrag, Datenschutz- und Einwilligungsunterlagen sowie Formulare zum Ausfüllen.
+- Coaches können unzugewiesene Vorlagen samt Datei endgültig löschen. Wurde eine Vorlage bereits einem Klienten zugewiesen, wird sie aus der aktiven Liste entfernt, während die vorhandenen Klientendokumente erhalten bleiben. Hochgeladene Rückläufe können einzeln gelöscht werden; der private Dateiinhalt wird entfernt und der Dokumentstatus angepasst.
 - Eine Vorlage kann einem bestimmten Klienten zugewiesen werden. Der Vorgang hält Vorlage/Version, Klient, Status und Zeitpunkte fest.
 - Die unterschriebene oder ausgefüllte Endfassung wird privat gespeichert und mit dem Klienten sowie der verwendeten Vorlagenversion verknüpft.
 - Dateien liegen außerhalb des öffentlichen Webordners. Jede Ansicht, jeder Download und jede Änderung prüft die Rechte serverseitig.
