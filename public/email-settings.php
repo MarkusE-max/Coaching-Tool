@@ -44,7 +44,19 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    if($action!=='save')throw new InvalidArgumentException('Unbekannte Aktion.');
   }
  }catch(InvalidArgumentException $e){$error=$e->getMessage();}
- catch(Throwable $e){error_log('Email settings operation failed: '.$e->getMessage());$error=$action==='test'?'Testmail konnte nicht versendet werden. Prüfe SMTP-Server, Port, Verschlüsselung und Anmeldung. Technische Details stehen im PHP-Fehlerprotokoll.':'E-Mail-Einstellungen konnten nicht gespeichert werden. Prüfe Migration 015 und die Tabellenrechte.';}
+ catch(Throwable $e){
+  error_log('Email settings operation failed: '.$e->getMessage());
+  if($action==='test'){
+   $error='Testmail konnte nicht versendet werden. Prüfe SMTP-Server, Port, Verschlüsselung und Anmeldung. Technische Details stehen im PHP-Fehlerprotokoll.';
+  }elseif($e instanceof PDOException){
+   $driverCode=(int)($e->errorInfo[1]??0);
+   if(in_array($driverCode,[1044,1142,1143],true))$error='Die Datenbankverbindung hat keine ausreichenden Rechte auf coaching_email_einstellungen (MariaDB '.$driverCode.').';
+   elseif(in_array($driverCode,[1054,1146],true))$error='Die benötigte Datenbankspalte oder Tabelle fehlt (MariaDB '.$driverCode.'). Prüfe Migration 015 und 016.';
+   else $error='Speichern fehlgeschlagen (MariaDB-Fehler '.$driverCode.'). Die genaue Ursache steht im PHP-Fehlerprotokoll.';
+  }elseif(str_contains($e->getMessage(),'OpenSSL'))$error='PHP OpenSSL ist nicht aktiviert. Aktiviere die Erweiterung im PHP-8.2-Profil der Web Station.';
+  elseif(str_contains($e->getMessage(),'mail_encryption_key'))$error='Der mail_encryption_key in config.local.php fehlt oder ist ungültig. Er muss aus genau 64 hexadezimalen Zeichen bestehen.';
+  else $error='Speichern fehlgeschlagen. Die genaue Ursache steht im PHP-Fehlerprotokoll.';
+ }
 }
 $settings=coachingMailSettings($db,$ownerId);
 $keyConfigured=true;try{coachingMailEncryptionKey();}catch(Throwable $e){$keyConfigured=false;}
