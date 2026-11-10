@@ -7,10 +7,10 @@ ALTER TABLE coaching_portal_zugaenge
  ADD COLUMN aufgaben_ruhe_bis TIME NOT NULL DEFAULT '08:00:00' AFTER aufgaben_ruhe_von;
 
 CREATE TABLE coaching_aufgaben_erinnerung_status (
- aufgabe_id BIGINT UNSIGNED NOT NULL,
+ portal_id BIGINT UNSIGNED NOT NULL,
  zuletzt_versendet_am DATETIME NULL,
  zuletzt_versucht_am DATE NULL,
- PRIMARY KEY (aufgabe_id),
+ PRIMARY KEY (portal_id),
  KEY idx_aufgaben_erinnerung_versand (zuletzt_versendet_am,zuletzt_versucht_am)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
