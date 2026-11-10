@@ -196,7 +196,8 @@ function coachingMailSendCoacheeInvitation(PDO $db, int $coachId, int $portalId)
     $resetId = (int) $db->lastInsertId();
     $loginUrl = $baseUrl . '/';
     $setPasswordUrl = $baseUrl . '/password-reset.php?token=' . $rawToken;
-    $body = "Hallo,\n\n"
+    $greetingName = trim((string) ($account['vorname'] ?? ''));
+    $body = "Hallo" . ($greetingName !== '' ? ' ' . $greetingName : '') . ",\n\n"
         . "dein Zugang zum Coaching Tool ist eingerichtet.\n\n"
         . "Benutzername: " . (string) $account['benutzername'] . "\n"
         . "Anmeldung: " . $loginUrl . "\n\n"
