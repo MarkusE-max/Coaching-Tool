@@ -56,9 +56,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
                 $conflict=$db->prepare('SELECT benutzername FROM benutzer WHERE benutzername=:name UNION ALL SELECT benutzername FROM coaching_portal_zugaenge WHERE benutzername=:name2 AND klient_id<>:client LIMIT 1');
                 $conflict->execute(['name'=>$name,'name2'=>$name,'client'=>$clientId]);
                 if($conflict->fetchColumn())throw new RuntimeException('Dieser Benutzername ist bereits vergeben.');
-                $hash=password_hash($password!==''?$password:bin2hex(random_bytes(32)),PASSWORD_DEFAULT);
-                $s=$db->prepare('INSERT INTO coaching_portal_zugaenge (klient_id,benutzername,email,passwort_hash,aktiv) VALUES (:client,:name,:email,:hash,1) ON DUPLICATE KEY UPDATE benutzername=VALUES(benutzername),email=VALUES(email),passwort_hash=IF(:password_set=1,VALUES(passwort_hash),passwort_hash),aktiv=1');
-                $s->execute(['client'=>$clientId,'name'=>$name,'email'=>$email,'hash'=>$hash,'password_set'=>$password!==''?1:0]);
+                if(!$isNew&&$password===''){
+                    $s=$db->prepare('UPDATE coaching_portal_zugaenge SET benutzername=:name,email=:email WHERE klient_id=:client');
+                    $s->execute(['client'=>$clientId,'name'=>$name,'email'=>$email]);
+                }else{
+                    $hash=password_hash($password!==''?$password:bin2hex(random_bytes(32)),PASSWORD_DEFAULT);
+                    $s=$db->prepare('INSERT INTO coaching_portal_zugaenge (klient_id,benutzername,email,passwort_hash,aktiv) VALUES (:client,:name,:email,:hash,1) ON DUPLICATE KEY UPDATE benutzername=VALUES(benutzername),email=VALUES(email),passwort_hash=VALUES(passwort_hash),aktiv=1');
+                    $s->execute(['client'=>$clientId,'name'=>$name,'email'=>$email,'hash'=>$hash]);
+                }
                 if($isNew){
                     $portalQuery=$db->prepare('SELECT id FROM coaching_portal_zugaenge WHERE klient_id=:client');
                     $portalQuery->execute(['client'=>$clientId]);
