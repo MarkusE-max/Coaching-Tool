@@ -243,7 +243,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
             <section class="login-panel">
                 <p class="eyebrow">COACH-BEREICH</p>
                 <h1>Anmelden</h1>
-                <p class="intro">Melde dich mit einem aktiven Konto aus der Benutzertabelle an.</p>
+                <p class="intro">Melde dich mit deinem aktiven Coach-, Verwaltungs- oder Coachee-Zugang an.</p>
                 <?php if ($errorMessage !== ''): ?>
                     <p class="form-error" role="alert"><?= h($errorMessage) ?></p>
                 <?php endif; ?>
