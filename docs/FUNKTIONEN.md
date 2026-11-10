@@ -35,7 +35,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 
 ## Zusätzlicher Umfang
 
-- Termine, Sitzungsnotizen und Ziele hängen an einem Klienten und sind im Verlauf auffindbar.
+- Termine, Sitzungsnotizen und Ziele hängen an einem Klienten und sind im Verlauf auffindbar. Coaches können aktive Dokumentvorlagen direkt aus der Klientenübersicht zuweisen; die Reihenfolge der Übersichtskarten wird pro Coach gespeichert (Migration 018).
 - Bestehende Einträge sollen über eine Bearbeiten-Funktion änderbar sein.
 - Ziele erhalten Beschreibung, Erfolgskriterium, Zieltermin und Status.
 - Private Sitzungsnotizen bleiben ausschließlich für den zuständigen Coach sichtbar. Admin-Rechte gewähren keinen pauschalen Zugriff auf private Notizen.
@@ -43,7 +43,7 @@ Diese Datei hält den vom Projektinhaber benannten Funktionsumfang und den aktue
 
 ## Datenbankänderung
 
-Migrationen 001 bis 003 ergänzen Notizen/Ziele, Dokumente und QR-Signaturen; Migration 004 ergänzt Status, Migration 005 Portalzugänge, Aufgaben und Darstellungseinstellungen; Migration 017 ergänzt Erinnerungspräferenzen und Coach-Aktivitäten. Migration 007 ergänzt Verwalterrolle, Notiz-Format-Verknüpfung und Auditprotokoll für Coach-Wechsel; Migration 008 ergänzt Vorher-/Nachher-Werte für Sitzungsnotizen. Vor jeder Migration eine Datenbanksicherung erstellen und die Tabellenrechte des Anwendungsbenutzers prüfen.
+Migrationen 001 bis 003 ergänzen Notizen/Ziele, Dokumente und QR-Signaturen; Migration 004 ergänzt Status, Migration 005 Portalzugänge, Aufgaben und Darstellungseinstellungen; Migration 017 ergänzt Erinnerungspräferenzen und Coach-Aktivitäten, Migration 018 das pro Coach gespeicherte Klientenübersichtslayout. Migration 007 ergänzt Verwalterrolle, Notiz-Format-Verknüpfung und Auditprotokoll für Coach-Wechsel; Migration 008 ergänzt Vorher-/Nachher-Werte für Sitzungsnotizen. Vor jeder Migration eine Datenbanksicherung erstellen und die Tabellenrechte des Anwendungsbenutzers prüfen.
 
 ## SMTP und Passwort-Zurücksetzung
 
