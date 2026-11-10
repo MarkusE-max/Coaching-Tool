@@ -145,3 +145,77 @@ function coachingMailSend(PDO $db,int $ownerId,string $recipient,string $subject
         fclose($socket);
     }
 }
+
+/**
+ * Sends the assigned Coach's Coachee an invitation with the login name and a
+ * one-time link for setting a password. The password itself is never emailed.
+ */
+function coachingMailSendCoacheeInvitation(PDO $db, int $coachId, int $portalId): void
+{
+    $query = $db->prepare(
+        "SELECT p.id, p.benutzername, p.email
+         FROM coaching_portal_zugaenge p
+         INNER JOIN klienten k ON k.id = p.klient_id AND k.benutzer_id = :coach
+         WHERE p.id = :portal AND p.aktiv = 1
+         LIMIT 1"
+    );
+    $query->execute(['coach' => $coachId, 'portal' => $portalId]);
+    $account = $query->fetch(PDO::FETCH_ASSOC);
+    if (!$account) {
+        throw new RuntimeException('Der aktive Coachee-Zugang wurde nicht gefunden.');
+    }
+    $email = trim((string) ($account['email'] ?? ''));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('Für diesen Coachee-Zugang ist keine gültige E-Mail-Adresse gespeichert.');
+    }
+    $baseUrl = coachingMailAppBaseUrl();
+    if ($baseUrl === null) {
+        throw new RuntimeException('Bitte zuerst die HTTPS-App-Adresse in app_base_url speichern.');
+    }
+    $settings = coachingMailSettings($db, $coachId);
+    if ((int) ($settings['aktiv'] ?? 0) !== 1) {
+        throw new RuntimeException('Bitte zuerst den E-Mail-Versand in deinen Einstellungen aktivieren.');
+    }
+    $limit = $db->prepare(
+        "SELECT COUNT(*) FROM coaching_passwort_resets
+         WHERE konto_typ='coachee' AND konto_id=:portal
+           AND erstellt_am >= NOW() - INTERVAL 1 HOUR"
+    );
+    $limit->execute(['portal' => $portalId]);
+    if ((int) $limit->fetchColumn() >= 3) {
+        throw new RuntimeException('Für diesen Zugang wurden bereits drei Einladungen in der letzten Stunde versendet. Bitte später erneut versuchen.');
+    }
+
+    $rawToken = bin2hex(random_bytes(32));
+    $tokenHash = hash('sha256', $rawToken);
+    $insert = $db->prepare(
+        "INSERT INTO coaching_passwort_resets (konto_typ,konto_id,token_hash,ablauf_am)
+         VALUES ('coachee',:portal,:hash,DATE_ADD(NOW(),INTERVAL 60 MINUTE))"
+    );
+    $insert->execute(['portal' => $portalId, 'hash' => $tokenHash]);
+    $resetId = (int) $db->lastInsertId();
+    $loginUrl = $baseUrl . '/';
+    $setPasswordUrl = $baseUrl . '/password-reset.php?token=' . $rawToken;
+    $body = "Hallo,\\n\\n"
+        . "dein Zugang zum Coaching Tool ist eingerichtet.\\n\\n"
+        . "Benutzername: " . (string) $account['benutzername'] . "\\n"
+        . "Anmeldung: " . $loginUrl . "\\n\\n"
+        . "Lege über diesen einmaligen Link dein persönliches Passwort fest:\\n"
+        . $setPasswordUrl . "\\n\\n"
+        . "Der Link ist 60 Minuten gültig. Falls du diese Nachricht nicht erwartet hast, wende dich bitte an deinen Coach.\\n";
+    try {
+        coachingMailSend($db, $coachId, $email, 'Dein Zugang zum Coaching Tool', $body);
+        $invalidate = $db->prepare(
+            "UPDATE coaching_passwort_resets
+             SET verwendet_am=NOW()
+             WHERE konto_typ='coachee' AND konto_id=:portal
+               AND id<>:current AND verwendet_am IS NULL"
+        );
+        $invalidate->execute(['portal' => $portalId, 'current' => $resetId]);
+    } catch (Throwable $error) {
+        $remove = $db->prepare('DELETE FROM coaching_passwort_resets WHERE id=:id');
+        $remove->execute(['id' => $resetId]);
+        throw $error;
+    }
+}
+
