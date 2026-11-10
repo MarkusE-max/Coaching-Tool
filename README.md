@@ -21,7 +21,7 @@ Web Station serves PHP pages directly and starts PHP for each request.
 
 1. In DSM Package Center, install/enable Web Station, PHP 8.2 and MariaDB 10.
 2. In Web Station, create a PHP web service with document root set to this repository's `public/` folder and assign a PHP 8.2 profile.
-3. In Web Station > Script Language Settings > PHP, enable `pdo_mysql`, `fileinfo`, `openssl`, and `zip` in that profile.
+3. In Web Station > Script Language Settings > PHP, enable `pdo_mysql`, `fileinfo`, `openssl`, `zip`, and `zlib` in that profile.
 4. Configure the database using the steps below.
 5. Open the Web Station portal. The database health check is at `/health.php`.
 
