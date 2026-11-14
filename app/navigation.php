@@ -54,7 +54,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                 <details class="sidebar-group"<?= in_array($active, ['notes'], true) ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">▤</span><span>Dokumentation</span></summary>
                     <div class="sidebar-submenu">
-                        <a class="sidebar-link<?= $active === 'notes' ? ' is-active' : '' ?>" href="notes.php"<?= $active === 'notes' ? ' aria-current="page"' : '' ?>>Private Sitzungsnotizen</a>
+                        <a class="sidebar-link<?= $active === 'notes' ? ' is-active' : '' ?>" href="notes.php<?= $clientContextSuffix ?>"<?= $active === 'notes' ? ' aria-current="page"' : '' ?>>Private Sitzungsnotizen</a>
                     </div>
                 </details>
                 <?php endif; ?>
