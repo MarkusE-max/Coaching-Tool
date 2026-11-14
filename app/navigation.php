@@ -12,6 +12,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $isAdmin = $role === 'admin';
     $isManager = $role === 'verwalter';
     $roleLabel = $isAdmin ? 'Administrator' : ($isManager ? 'Verwalter' : 'Coach');
+    $clientContextId=filter_input(INPUT_GET,'klient_id',FILTER_VALIDATE_INT);$clientContextId=$clientContextId===false||$clientContextId===null?0:(int)$clientContextId;if($clientContextId<1&&$active==='clients'&&basename((string)($_SERVER['SCRIPT_NAME']??''))==='client-overview.php'){$currentClientId=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);$clientContextId=$currentClientId===false||$currentClientId===null?0:(int)$currentClientId;}$clientContextSuffix=$clientContextId>0?'?klient_id='.$clientContextId:'';
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements'], true);
@@ -43,10 +44,10 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                     <div class="sidebar-submenu">
                         <a class="sidebar-link<?= $active === 'clients' ? ' is-active' : '' ?>" href="clients.php"<?= $active === 'clients' ? ' aria-current="page"' : '' ?>>Klienten</a>
                         <?php if (!$isManager): ?>
-                        <a class="sidebar-link<?= $active === 'appointments' ? ' is-active' : '' ?>" href="appointments.php"<?= $active === 'appointments' ? ' aria-current="page"' : '' ?>>Termine</a>
-                        <a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a>
+                        <a class="sidebar-link<?= $active === 'appointments' ? ' is-active' : '' ?>" href="appointments.php<?= $clientContextSuffix ?>"<?= $active === 'appointments' ? ' aria-current="page"' : '' ?>>Termine</a>
+                        <a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php<?= $clientContextSuffix ?>"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a>
                         <?php endif; ?>
-                        <?php if ($role === 'coach'): ?><a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a><a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Coaching-Aufträge</a><?php endif; ?>
+                        <?php if ($role === 'coach'): ?><a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php<?= $clientContextSuffix ?>"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a><a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php<?= $clientContextSuffix ?>"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Coaching-Aufträge</a><?php endif; ?>
                     </div>
                 </details>
                 <?php if ($role === 'coach'): ?>
