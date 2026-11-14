@@ -45,8 +45,13 @@ try {
             $prefillParams = ['id' => (int) $prefillClient];
             if (!$isAdmin) $prefillParams['owner'] = (int) $user['id'];
             $prefill->execute($prefillParams);
-            if ($prefill->fetchColumn()) { $values['klient_id'] = (int) $prefillClient; $selectedClientId=(int)$prefillClient; } foreach($clients as $clientOption)if((int)$clientOption['id']===$selectedClientId){$selectedClientName=$clientOption['vorname'].' '.$clientOption['nachname'];break;}
-            else $error = 'Der ausgewählte Klient gehört nicht zu deinem Zugang.';
+            if ($prefill->fetchColumn()) {
+                $values['klient_id'] = (int) $prefillClient;
+                $selectedClientId = (int) $prefillClient;
+                foreach ($clients as $clientOption) if ((int) $clientOption['id'] === $selectedClientId) { $selectedClientName = $clientOption['vorname'] . ' ' . $clientOption['nachname']; break; }
+            } else {
+                $error = 'Der ausgewählte Klient gehört nicht zu deinem Zugang.';
+            }
         }
     }
 
