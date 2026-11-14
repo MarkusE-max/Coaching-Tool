@@ -5,6 +5,7 @@ ini_set('session.use_strict_mode','1'); session_name('coaching_tool_session');
 session_set_cookie_params(['httponly'=>true,'secure'=>$isHttps,'samesite'=>'Strict','path'=>'/']); session_start(); header('Cache-Control: no-store, private');
 require_once dirname(__DIR__).'/app/bootstrap.php';require_once dirname(__DIR__).'/app/document_storage.php';
 function overviewH(string|int|null $v): string { return htmlspecialchars((string)$v, ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'); }
+function overviewEnumOptions(string $type,array $fallback): array { if(preg_match('/^enum\\((.*)\\)$/i',trim($type),$m)!==1)return $fallback;preg_match_all("/'([^']*)'/",$m[1],$matches);return $matches[1]!==[]?array_map('stripcslashes',$matches[1]):$fallback; }
 $user=$_SESSION['user']??null;
 if(!is_array($user)||!isset($user['id'],$user['role'])||!in_array($user['role'],['admin','coach'],true)){header('Location: ./');exit;}
 $db=coachingDatabase(); $admin=$user['role']==='admin'; $id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT)?:0;
