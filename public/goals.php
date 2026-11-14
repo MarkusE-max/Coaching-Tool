@@ -27,6 +27,7 @@ $statuses = ['aktiv' => 'Aktiv', 'pausiert' => 'Pausiert', 'erreicht' => 'Erreic
 $error = '';
 $message = isset($_GET['saved']) ? 'Das Ziel wurde gespeichert.' : '';
 $values = ['id' => 0, 'klient_id' => 0, 'titel' => '', 'beschreibung' => '', 'erfolgskriterium' => '', 'zieltermin' => '', 'status' => 'aktiv'];
+$selectedClientId=0;
 
 try {
     if ($isAdmin) {
@@ -43,7 +44,7 @@ try {
             $prefillParams = ['id' => (int) $prefillClient];
             if (!$isAdmin) $prefillParams['owner'] = (int) $user['id'];
             $prefill->execute($prefillParams);
-            if ($prefill->fetchColumn()) $values['klient_id'] = (int) $prefillClient;
+            if ($prefill->fetchColumn()) { $values['klient_id'] = (int) $prefillClient; $selectedClientId=(int)$prefillClient; }
             else $error = 'Der ausgewählte Klient gehört nicht zu deinem Zugang.';
         }
     }
@@ -92,7 +93,7 @@ try {
             $insert = $database->prepare('INSERT INTO coaching_ziele (klient_id, coach_benutzer_id, auftrag_id, titel, beschreibung, erfolgskriterium, zieltermin, status) VALUES (:client_id, :coach_id, :engagement_id, :title, :description, :criterion, :due_date, :status)');
             $insert->execute(['client_id' => $clientId, 'coach_id' => $goalCoachId, 'engagement_id' => $engagementId, 'title' => $title, 'description' => $description ?: null, 'criterion' => $criterion ?: null, 'due_date' => $dueDate ?: null, 'status' => $status]);
         }
-        header('Location: goals.php?saved=1');
+        header('Location: goals.php?saved=1&klient_id=' . $clientId);
         exit;
     }
 
@@ -115,12 +116,8 @@ try {
 }
 
 try {
-    if ($isAdmin) {
-        $query = $database->query('SELECT g.id, g.klient_id, g.titel, g.status, g.zieltermin, g.geaendert_am, k.vorname, k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id = g.klient_id INNER JOIN coaching_auftraege a ON a.id=g.auftrag_id WHERE a.status=\'aktiv\' ORDER BY g.geaendert_am DESC LIMIT 200');
-    } else {
-        $query = $database->prepare('SELECT g.id, g.klient_id, g.titel, g.status, g.zieltermin, g.geaendert_am, k.vorname, k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id = g.klient_id INNER JOIN coaching_auftraege a ON a.id=g.auftrag_id WHERE k.benutzer_id = :owner AND a.status=\'aktiv\' ORDER BY g.geaendert_am DESC LIMIT 200');
-        $query->execute(['owner' => (int) $user['id']]);
-    }
+    $sql='SELECT g.id,g.klient_id,g.titel,g.status,g.zieltermin,g.geaendert_am,k.vorname,k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id=g.klient_id INNER JOIN coaching_auftraege a ON a.id=g.auftrag_id WHERE a.status=\\'aktiv\\'' . ($isAdmin ? '' : ' AND k.benutzer_id=:owner') . ($selectedClientId>0 ? ' AND k.id=:selected_client' : '') . ' ORDER BY g.geaendert_am DESC LIMIT 200';
+    $query=$database->prepare($sql);$listParams=$isAdmin?[]:['owner'=>(int)$user['id']];if($selectedClientId>0)$listParams['selected_client']=$selectedClientId;$query->execute($listParams);
     $goals = $query->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $exception) {
     error_log('Coaching Tool goal list failed: ' . $exception->getMessage());
@@ -137,7 +134,7 @@ try {
 <body class="has-app-sidebar">
 <?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($user, 'goals', $token); ?>
 <main class="page">
-<h1>Ziele</h1><p>Lege Entwicklungsziele mit Erfolgskriterium und Zieldatum an und halte den Fortschritt fest.</p>
+<h1>Ziele</h1><p>Lege Entwicklungsziele mit Erfolgskriterium und Zieldatum an und halte den Fortschritt fest.<?php if($selectedClientId>0):?> Nur Ziele des ausgewählten Klienten werden gezeigt. <a href="client-overview.php?id=<?=$selectedClientId?>">Zur Klientenakte</a> · <a href="goals.php">Alle Klienten</a><?php endif;?></p>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= goalH($message) ?></p><?php endif; ?><?php if ($error !== ''): ?><p class="error" role="alert"><?= goalH($error) ?></p><?php endif; ?>
 <div class="layout"><section class="card"><h2><?= (int) $values['id'] > 0 ? 'Ziel bearbeiten' : 'Ziel anlegen' ?></h2><?php if ($clients === []): ?><p>Lege zuerst einen Klienten an.</p><?php else: ?>
 <form class="form" method="post"><input type="hidden" name="csrf_token" value="<?= goalH($token) ?>"><input type="hidden" name="id" value="<?= goalH((int) $values['id']) ?>">
@@ -149,5 +146,5 @@ try {
 <label for="status">Status</label><select id="status" name="status"><?php foreach ($statuses as $value => $label): ?><option value="<?= goalH($value) ?>" <?= $values['status'] === $value ? 'selected' : '' ?>><?= goalH($label) ?></option><?php endforeach; ?></select>
 <button class="button" type="submit">Ziel speichern</button><?php if ((int) $values['id'] > 0): ?> <a href="goals.php">Abbrechen</a><?php endif; ?>
 </form><?php endif; ?></section>
-<section class="card"><h2>Entwicklungsziele (<?= count($goals) ?>)</h2><?php if ($goals === []): ?><p>Noch keine Ziele erfasst.</p><?php else: ?><?php foreach ($goals as $goal): ?><div class="row"><div><strong><?= goalH($goal['titel']) ?></strong><div><?= goalH($goal['vorname'] . ' ' . $goal['nachname']) ?></div><span class="muted"><?= goalH($statuses[$goal['status']] ?? $goal['status']) ?><?php if ($goal['zieltermin']): ?> · Zieltermin <?= goalH(date('d.m.Y', strtotime($goal['zieltermin']))) ?><?php endif; ?></span></div><a href="goals.php?edit=<?= goalH($goal['id']) ?>">Bearbeiten</a></div><?php endforeach; ?><?php endif; ?></section></div>
+<section class="card"><h2>Entwicklungsziele (<?= count($goals) ?>)</h2><?php if ($goals === []): ?><p>Noch keine Ziele erfasst.</p><?php else: ?><?php foreach ($goals as $goal): ?><div class="row"><div><strong><?= goalH($goal['titel']) ?></strong><div><?= goalH($goal['vorname'] . ' ' . $goal['nachname']) ?></div><span class="muted"><?= goalH($statuses[$goal['status']] ?? $goal['status']) ?><?php if ($goal['zieltermin']): ?> · Zieltermin <?= goalH(date('d.m.Y', strtotime($goal['zieltermin']))) ?><?php endif; ?></span></div><a href="goals.php?edit=<?= goalH($goal['id']) ?><?= $selectedClientId > 0 ? '&amp;klient_id=' . $selectedClientId : '' ?>">Bearbeiten</a></div><?php endforeach; ?><?php endif; ?></section></div>
 <p><a href="./">Zur Übersicht</a></p></main></body></html>
