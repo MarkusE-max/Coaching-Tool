@@ -61,6 +61,7 @@ $message = isset($_GET['saved']) ? 'Der Termin wurde gespeichert.' : '';
 $values = ['id' => 0, 'klient_id' => 0, 'beginn' => '', 'dauer_minuten' => 60, 'format' => $formatOptions[0] ?? 'vor_ort', 'status' => $statusOptions[0] ?? 'geplant', 'thema' => ''];
 $clients = [];
 $appointments = [];
+$selectedClientId=0;
 
 try {
     if ($isAdmin) {
@@ -77,7 +78,7 @@ try {
             $prefillParams = ['id' => (int) $prefillClient];
             if (!$isAdmin) $prefillParams['owner'] = (int) $user['id'];
             $prefill->execute($prefillParams);
-            if ($prefill->fetchColumn()) $values['klient_id'] = (int) $prefillClient;
+            if ($prefill->fetchColumn()) { $values['klient_id'] = (int) $prefillClient; $selectedClientId = (int) $prefillClient; }
             else $error = 'Der ausgewählte Klient gehört nicht zu deinem Zugang.';
         }
     }
@@ -142,7 +143,7 @@ try {
             $insert = $database->prepare('INSERT INTO termine (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $insertValues) . ')');
             $insert->execute($params);
         }
-        header('Location: appointments.php?saved=1');
+        header('Location: appointments.php?saved=1&klient_id=' . $clientId);
         exit;
     }
 
@@ -167,9 +168,11 @@ try {
 
 if ($missing === []) {
     try {
-        $sql = 'SELECT t.id, t.klient_id, t.beginn, t.dauer_minuten, t.format, t.status, ' . $topicSelect . ', k.vorname, k.nachname, a.titel AS auftrag_titel FROM termine t INNER JOIN klienten k ON k.id = t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id WHERE a.status=\'aktiv\'' . ($isAdmin ? '' : ' AND k.benutzer_id = :owner') . ' ORDER BY t.beginn DESC LIMIT 200';
+        $sql = 'SELECT t.id, t.klient_id, t.beginn, t.dauer_minuten, t.format, t.status, ' . $topicSelect . ', k.vorname, k.nachname, a.titel AS auftrag_titel FROM termine t INNER JOIN klienten k ON k.id = t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id WHERE a.status=\'aktiv\'' . ($isAdmin ? '' : ' AND k.benutzer_id = :owner') . ($selectedClientId > 0 ? ' AND k.id = :selected_client' : '') . ' ORDER BY t.beginn DESC LIMIT 200';
         $query = $database->prepare($sql);
-        $query->execute($isAdmin ? [] : ['owner' => (int) $user['id']]);
+        $listParams = $isAdmin ? [] : ['owner' => (int) $user['id']];
+        if ($selectedClientId > 0) $listParams['selected_client'] = $selectedClientId;
+        $query->execute($listParams);
         $appointments = $query->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $exception) {
         error_log('Coaching Tool appointment list failed: ' . $exception->getMessage());
@@ -192,7 +195,7 @@ foreach ($clients as $client) $clientsById[(int) $client['id']] = $client;
 <?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($user, 'appointments', $token); ?>
 <main class="page">
 
-<h1>Terminverwaltung</h1><p>Plane Termine, ändere sie bei Bedarf und behalte den bisherigen Verlauf pro Klient im Blick.</p>
+<h1>Terminverwaltung</h1><p>Plane Termine, ändere sie bei Bedarf und behalte den bisherigen Verlauf pro Klient im Blick.<?php if($selectedClientId>0):?> Nur Termine des ausgewählten Klienten werden gezeigt. <a href="client-overview.php?id=<?=$selectedClientId?>">Zur Klientenakte</a> · <a href="appointments.php">Alle Klienten</a><?php endif;?></p>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= appointmentH($message) ?></p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="error" role="alert"><?= appointmentH($error) ?></p><?php endif; ?>
 <div class="layout"><section class="card"><h2><?= (int) $values['id'] > 0 ? 'Termin bearbeiten' : 'Termin anlegen' ?></h2>
@@ -206,6 +209,6 @@ foreach ($clients as $client) $clientsById[(int) $client['id']] = $client;
 <label for="status">Status</label><select id="status" name="status" required><?php foreach ($statusOptions as $option): ?><option value="<?= appointmentH($option) ?>" <?= $values['status'] === $option ? 'selected' : '' ?>><?= appointmentH($statusLabels[$option] ?? ucfirst($option)) ?></option><?php endforeach; ?></select>
 <button class="button" type="submit">Termin speichern</button><?php if ((int) $values['id'] > 0): ?> <a href="appointments.php">Abbrechen</a><?php endif; ?>
 </form><?php endif; ?></section>
-<section class="card"><h2>Terminverlauf (<?= count($appointments) ?>)</h2><?php if ($appointments === []): ?><p>Noch keine Termine vorhanden.</p><?php else: ?><?php foreach ($appointments as $appointment): ?><div class="row"><div><strong><?= appointmentH(date('d.m.Y · H:i', strtotime((string) $appointment['beginn']))) ?></strong><div><?= appointmentH($appointment['vorname'] . ' ' . $appointment['nachname']) ?><?php if (!empty($appointment['thema'])): ?> · <?= appointmentH($appointment['thema']) ?><?php endif; ?></div><span class="muted"><?= appointmentH((string) $appointment['dauer_minuten']) ?> Min. · <?= appointmentH($formatLabels[$appointment['format']] ?? $appointment['format']) ?> · <?= appointmentH($statusLabels[$appointment['status']] ?? $appointment['status']) ?></span></div><div><a href="appointments.php?edit=<?= appointmentH($appointment['id']) ?>">Bearbeiten</a><?php if ($user['role'] === 'coach'): ?> · <a href="notes.php?termin_id=<?= appointmentH($appointment['id']) ?>">Notizen</a><?php endif; ?></div></div><?php endforeach; ?><?php endif; ?></section></div>
+<section class="card"><h2>Terminverlauf (<?= count($appointments) ?>)</h2><?php if ($appointments === []): ?><p>Noch keine Termine vorhanden.</p><?php else: ?><?php foreach ($appointments as $appointment): ?><div class="row"><div><strong><?= appointmentH(date('d.m.Y · H:i', strtotime((string) $appointment['beginn']))) ?></strong><div><?= appointmentH($appointment['vorname'] . ' ' . $appointment['nachname']) ?><?php if (!empty($appointment['thema'])): ?> · <?= appointmentH($appointment['thema']) ?><?php endif; ?></div><span class="muted"><?= appointmentH((string) $appointment['dauer_minuten']) ?> Min. · <?= appointmentH($formatLabels[$appointment['format']] ?? $appointment['format']) ?> · <?= appointmentH($statusLabels[$appointment['status']] ?? $appointment['status']) ?></span></div><div><a href="appointments.php?edit=<?= appointmentH($appointment['id']) ?><?= $selectedClientId > 0 ? '&amp;klient_id=' . $selectedClientId : '' ?>">Bearbeiten</a><?php if ($user['role'] === 'coach'): ?> · <a href="notes.php?termin_id=<?= appointmentH($appointment['id']) ?>">Notizen</a><?php endif; ?></div></div><?php endforeach; ?><?php endif; ?></section></div>
 <p><a href="./">Zur Übersicht</a></p>
 </main></body></html>
