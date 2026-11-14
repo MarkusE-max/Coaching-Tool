@@ -181,6 +181,7 @@ if ($missing === []) {
 }
 $clientsById = [];
 foreach ($clients as $client) $clientsById[(int) $client['id']] = $client;
+$selectedClientName=$selectedClientId>0?trim(($clientsById[$selectedClientId]['vorname']??'').' '.($clientsById[$selectedClientId]['nachname']??'')):'';
 ?>
 <!doctype html>
 <html lang="de">
@@ -195,7 +196,7 @@ foreach ($clients as $client) $clientsById[(int) $client['id']] = $client;
 <?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($user, 'appointments', $token); ?>
 <main class="page">
 
-<h1>Terminverwaltung</h1><p>Plane Termine, ändere sie bei Bedarf und behalte den bisherigen Verlauf pro Klient im Blick.<?php if($selectedClientId>0):?> Nur Termine des ausgewählten Klienten werden gezeigt. <a href="client-overview.php?id=<?=$selectedClientId?>">Zur Klientenakte</a> · <a href="appointments.php">Alle Klienten</a><?php endif;?></p>
+<h1>Terminverwaltung</h1><p>Plane Termine, ändere sie bei Bedarf und behalte den bisherigen Verlauf pro Klient im Blick.<?php if($selectedClientId>0):?> Nur Termine von <?= appointmentH($selectedClientName) ?> werden gezeigt. <a href="client-overview.php?id=<?=$selectedClientId?>">Zur Klientenakte</a> · <a href="appointments.php">Alle Klienten</a><?php endif;?></p>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= appointmentH($message) ?></p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="error" role="alert"><?= appointmentH($error) ?></p><?php endif; ?>
 <div class="layout"><section class="card"><h2><?= (int) $values['id'] > 0 ? 'Termin bearbeiten' : 'Termin anlegen' ?></h2>
