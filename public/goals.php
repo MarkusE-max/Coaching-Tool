@@ -116,7 +116,7 @@ try {
 }
 
 try {
-    $sql='SELECT g.id,g.klient_id,g.titel,g.status,g.zieltermin,g.geaendert_am,k.vorname,k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id=g.klient_id INNER JOIN coaching_auftraege a ON a.id=g.auftrag_id WHERE a.status=\\'aktiv\\'' . ($isAdmin ? '' : ' AND k.benutzer_id=:owner') . ($selectedClientId>0 ? ' AND k.id=:selected_client' : '') . ' ORDER BY g.geaendert_am DESC LIMIT 200';
+    $sql="SELECT g.id,g.klient_id,g.titel,g.status,g.zieltermin,g.geaendert_am,k.vorname,k.nachname FROM coaching_ziele g INNER JOIN klienten k ON k.id=g.klient_id INNER JOIN coaching_auftraege a ON a.id=g.auftrag_id WHERE a.status='aktiv'" . ($isAdmin ? '' : ' AND k.benutzer_id=:owner') . ($selectedClientId>0 ? ' AND k.id=:selected_client' : '') . ' ORDER BY g.geaendert_am DESC LIMIT 200';
     $query=$database->prepare($sql);$listParams=$isAdmin?[]:['owner'=>(int)$user['id']];if($selectedClientId>0)$listParams['selected_client']=$selectedClientId;$query->execute($listParams);
     $goals = $query->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $exception) {
