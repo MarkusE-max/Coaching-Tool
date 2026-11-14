@@ -26,21 +26,16 @@ $coachId = (int) $user['id'];
 $error = '';
 $message = isset($_GET['saved']) ? 'Die Sitzungsnotiz wurde gespeichert.' : '';
 $values = ['id' => 0, 'klient_id' => 0, 'termin_id' => '', 'format_id' => '', 'skala_vorher' => '', 'skala_nachher' => '', 'titel' => '', 'inhalt' => ''];
+$selectedClientId=0;$selectedClientName='';
 
 $clientQuery = $database->prepare('SELECT id, vorname, nachname FROM klienten WHERE benutzer_id = :owner ORDER BY nachname, vorname');
 $clientQuery->execute(['owner' => $coachId]);
 $clients = $clientQuery->fetchAll(PDO::FETCH_ASSOC);
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' && isset($_GET['klient_id'])) {
-    $prefillClient = filter_var($_GET['klient_id'], FILTER_VALIDATE_INT);
-    if ($prefillClient !== false && (int) $prefillClient > 0) {
-        $validClientIds = array_map(static fn(array $client): int => (int) $client['id'], $clients);
-        if (in_array((int) $prefillClient, $validClientIds, true)) $values['klient_id'] = (int) $prefillClient;
-        else $error = 'Der ausgewählte Klient gehört nicht zu deinem Zugang.';
-    }
-}
+$prefillClient=filter_var($_GET['klient_id']??0,FILTER_VALIDATE_INT);$prefillClient=$prefillClient===false?0:(int)$prefillClient;
+if($prefillClient>0){$validClientIds=array_map(static fn(array $client):int=>(int)$client['id'],$clients);if(in_array($prefillClient,$validClientIds,true)){$selectedClientId=$prefillClient;foreach($clients as $clientOption)if((int)$clientOption['id']===$selectedClientId){$selectedClientName=$clientOption['vorname'].' '.$clientOption['nachname'];break;}if($_SERVER['REQUEST_METHOD']!=='POST')$values['klient_id']=$selectedClientId;}else{$error='Der ausgewählte Klient gehört nicht zu deinem Zugang.';}}
 
-$appointmentQuery = $database->prepare("SELECT t.id, t.klient_id, t.beginn, k.vorname, k.nachname FROM termine t INNER JOIN klienten k ON k.id = t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id WHERE k.benutzer_id = :owner AND a.status='aktiv' ORDER BY t.beginn DESC LIMIT 500");
-$appointmentQuery->execute(['owner' => $coachId]);
+$appointmentSql="SELECT t.id,t.klient_id,t.beginn,k.vorname,k.nachname FROM termine t INNER JOIN klienten k ON k.id=t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id WHERE k.benutzer_id=:owner AND a.status='aktiv'".($selectedClientId>0?' AND k.id=:selected_client':'')." ORDER BY t.beginn DESC LIMIT 500";
+$appointmentQuery=$database->prepare($appointmentSql);$appointmentParams=['owner'=>$coachId];if($selectedClientId>0)$appointmentParams['selected_client']=$selectedClientId;$appointmentQuery->execute($appointmentParams);
 $appointments = $appointmentQuery->fetchAll(PDO::FETCH_ASSOC);
 
 $formatQuery = $database->prepare("SELECT DISTINCT f.id, f.titel FROM coaching_formate f WHERE f.coach_benutzer_id = :owner OR f.freigabe = 'alle_coaches' OR EXISTS (SELECT 1 FROM coaching_format_freigaben a WHERE a.format_id = f.id AND a.coach_benutzer_id = :viewer) ORDER BY f.titel");
@@ -96,25 +91,26 @@ try {
             $insert = $database->prepare("INSERT INTO coaching_sitzungsnotizen (termin_id, auftrag_id, format_id, klient_id, coach_benutzer_id, titel, inhalt, skala_vorher, skala_nachher, sichtbarkeit) VALUES (:appointment_id, :engagement_id, :format_id, :client_id, :owner, :title, :body, :skala_vorher, :skala_nachher, 'coach_private')");
             $insert->execute(['appointment_id' => $appointmentId, 'engagement_id' => $engagementId, 'format_id' => $formatId, 'client_id' => $clientId, 'owner' => $coachId, 'title' => $title, 'body' => $body, 'skala_vorher' => $ratingBefore, 'skala_nachher' => $ratingAfter]);
         }
-        header('Location: notes.php?saved=1');
+        header('Location: notes.php?saved=1&klient_id=' . $clientId);
         exit;
     }
 
     if (isset($_GET['termin_id'])) {
         $appointmentId = filter_var($_GET['termin_id'], FILTER_VALIDATE_INT);
         if ($appointmentId === false || (int) $appointmentId < 1) throw new InvalidArgumentException('Ungültige Termin-ID.');
-        $query = $database->prepare('SELECT t.id, t.klient_id FROM termine t INNER JOIN klienten k ON k.id = t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.status=\'aktiv\' WHERE t.id = :id AND k.benutzer_id = :owner');
-        $query->execute(['id' => (int) $appointmentId, 'owner' => $coachId]);
+        $query=$database->prepare("SELECT t.id,t.klient_id FROM termine t INNER JOIN klienten k ON k.id=t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.status='aktiv' WHERE t.id=:id AND k.benutzer_id=:owner".($selectedClientId>0?' AND t.klient_id=:selected_client':''));
+        $termParams=['id'=>(int)$appointmentId,'owner'=>$coachId];if($selectedClientId>0)$termParams['selected_client']=$selectedClientId;$query->execute($termParams);
         $appointment = $query->fetch(PDO::FETCH_ASSOC);
         if (!$appointment) throw new InvalidArgumentException('Der Termin gehört nicht zu deinem Zugang.');
         $values['termin_id'] = (int) $appointment['id'];
         $values['klient_id'] = (int) $appointment['klient_id'];
+        if($selectedClientId<1){$selectedClientId=(int)$appointment['klient_id'];foreach($clients as $clientOption)if((int)$clientOption['id']===$selectedClientId){$selectedClientName=$clientOption['vorname'].' '.$clientOption['nachname'];break;}}
     }
     if (isset($_GET['edit'])) {
         $editId = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($editId === false || (int) $editId < 1) throw new InvalidArgumentException('Ungültige Notiz-ID.');
-        $query = $database->prepare('SELECT n.id, n.klient_id, n.termin_id, n.format_id, n.skala_vorher, n.skala_nachher, n.titel, n.inhalt FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id INNER JOIN coaching_auftraege a ON a.id=n.auftrag_id AND a.status=\'aktiv\' WHERE n.id = :id AND n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner');
-        $query->execute(['id' => (int) $editId, 'note_owner' => $coachId, 'client_owner' => $coachId]);
+        $query=$database->prepare("SELECT n.id,n.klient_id,n.termin_id,n.format_id,n.skala_vorher,n.skala_nachher,n.titel,n.inhalt FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id=n.klient_id INNER JOIN coaching_auftraege a ON a.id=n.auftrag_id AND a.status='aktiv' WHERE n.id=:id AND n.coach_benutzer_id=:note_owner AND k.benutzer_id=:client_owner".($selectedClientId>0?' AND n.klient_id=:selected_client':''));
+        $editParams=['id'=>(int)$editId,'note_owner'=>$coachId,'client_owner'=>$coachId];if($selectedClientId>0)$editParams['selected_client']=$selectedClientId;$query->execute($editParams);
         $record = $query->fetch(PDO::FETCH_ASSOC);
         if (!$record) throw new InvalidArgumentException('Die Notiz wurde nicht gefunden.');
         $values = $record;
@@ -133,10 +129,9 @@ $search = trim(is_string($_GET['q'] ?? null) ? $_GET['q'] : '');
 if (strlen($search) > 190) $search = substr($search, 0, 190);
 $notes = [];
 try {
-    $list = $database->prepare('SELECT n.id, n.termin_id, n.klient_id, n.titel, n.inhalt, n.erstellt_am, n.format_id, n.skala_vorher, n.skala_nachher, f.titel AS format_titel, k.vorname, k.nachname, t.beginn FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id = n.klient_id LEFT JOIN coaching_formate f ON f.id = n.format_id LEFT JOIN termine t ON t.id = n.termin_id INNER JOIN coaching_auftraege a ON a.id=n.auftrag_id WHERE a.status=\'aktiv\' AND n.coach_benutzer_id = :note_owner AND k.benutzer_id = :client_owner AND (:search = \'%%\' OR n.titel LIKE :title_search OR n.inhalt LIKE :body_search) ORDER BY n.erstellt_am DESC LIMIT 200');
-    $needle = '%' . $search . '%';
-    $list->execute(['note_owner' => $coachId, 'client_owner' => $coachId, 'search' => $search === '' ? '%%' : $search, 'title_search' => $needle, 'body_search' => $needle]);
-    $notes = $list->fetchAll(PDO::FETCH_ASSOC);
+    $listSql="SELECT n.id,n.termin_id,n.klient_id,n.titel,n.inhalt,n.erstellt_am,n.format_id,n.skala_vorher,n.skala_nachher,f.titel AS format_titel,k.vorname,k.nachname,t.beginn FROM coaching_sitzungsnotizen n INNER JOIN klienten k ON k.id=n.klient_id LEFT JOIN coaching_formate f ON f.id=n.format_id LEFT JOIN termine t ON t.id=n.termin_id INNER JOIN coaching_auftraege a ON a.id=n.auftrag_id WHERE a.status='aktiv' AND n.coach_benutzer_id=:note_owner AND k.benutzer_id=:client_owner AND (:search='%%' OR n.titel LIKE :title_search OR n.inhalt LIKE :body_search)".($selectedClientId>0?' AND n.klient_id=:selected_client':'')." ORDER BY n.erstellt_am DESC LIMIT 200";
+$list=$database->prepare($listSql);$needle='%'.$search.'%';$listParams=['note_owner'=>$coachId,'client_owner'=>$coachId,'search'=>$search===''?'%%':$search,'title_search'=>$needle,'body_search'=>$needle];if($selectedClientId>0)$listParams['selected_client']=$selectedClientId;$list->execute($listParams);
+$notes = $list->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $exception) {
     error_log('Coaching Tool private note list failed: ' . $exception->getMessage());
     $error = 'Private Notizen konnten nicht geladen werden. Bitte führe die SQL-Migration aus und prüfe die Tabellenrechte.';
