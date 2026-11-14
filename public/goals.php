@@ -37,6 +37,7 @@ try {
         $clientQuery->execute(['owner' => (int) $user['id']]);
     }
     $clients = $clientQuery->fetchAll(PDO::FETCH_ASSOC);
+    $selectedClientName='';
     if ($_SERVER['REQUEST_METHOD'] !== 'POST' && isset($_GET['klient_id'])) {
         $prefillClient = filter_var($_GET['klient_id'], FILTER_VALIDATE_INT);
         if ($prefillClient !== false && (int) $prefillClient > 0) {
@@ -44,7 +45,7 @@ try {
             $prefillParams = ['id' => (int) $prefillClient];
             if (!$isAdmin) $prefillParams['owner'] = (int) $user['id'];
             $prefill->execute($prefillParams);
-            if ($prefill->fetchColumn()) { $values['klient_id'] = (int) $prefillClient; $selectedClientId=(int)$prefillClient; }
+            if ($prefill->fetchColumn()) { $values['klient_id'] = (int) $prefillClient; $selectedClientId=(int)$prefillClient; } foreach($clients as $clientOption)if((int)$clientOption['id']===$selectedClientId){$selectedClientName=$clientOption['vorname'].' '.$clientOption['nachname'];break;}
             else $error = 'Der ausgewählte Klient gehört nicht zu deinem Zugang.';
         }
     }
@@ -134,7 +135,7 @@ try {
 <body class="has-app-sidebar">
 <?php require_once dirname(__DIR__) . '/app/navigation.php'; renderCoachingSidebar($user, 'goals', $token); ?>
 <main class="page">
-<h1>Ziele</h1><p>Lege Entwicklungsziele mit Erfolgskriterium und Zieldatum an und halte den Fortschritt fest.<?php if($selectedClientId>0):?> Nur Ziele des ausgewählten Klienten werden gezeigt. <a href="client-overview.php?id=<?=$selectedClientId?>">Zur Klientenakte</a> · <a href="goals.php">Alle Klienten</a><?php endif;?></p>
+<h1>Ziele</h1><p>Lege Entwicklungsziele mit Erfolgskriterium und Zieldatum an und halte den Fortschritt fest.<?php if($selectedClientId>0):?> Nur Ziele von <?= goalH($selectedClientName) ?> werden gezeigt. <a href="client-overview.php?id=<?=$selectedClientId?>">Zur Klientenakte</a> · <a href="goals.php">Alle Klienten</a><?php endif;?></p>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= goalH($message) ?></p><?php endif; ?><?php if ($error !== ''): ?><p class="error" role="alert"><?= goalH($error) ?></p><?php endif; ?>
 <div class="layout"><section class="card"><h2><?= (int) $values['id'] > 0 ? 'Ziel bearbeiten' : 'Ziel anlegen' ?></h2><?php if ($clients === []): ?><p>Lege zuerst einen Klienten an.</p><?php else: ?>
 <form class="form" method="post"><input type="hidden" name="csrf_token" value="<?= goalH($token) ?>"><input type="hidden" name="id" value="<?= goalH((int) $values['id']) ?>">
