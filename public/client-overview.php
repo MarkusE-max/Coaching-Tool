@@ -24,7 +24,46 @@ $token=$_SESSION['csrf_token']??''; if(!is_string($token)||strlen($token)!==64){
 $defaultOverviewOrder=['invoices','sessions','goals','tasks','notes','documents'];
 $overviewOrder=$defaultOverviewOrder;
 if(!$admin){$layoutQuery=$db->prepare('SELECT layout_json FROM coaching_klientenuebersicht_layout WHERE coach_benutzer_id=:coach');$layoutQuery->execute(['coach'=>(int)$user['id']]);$savedLayout=$layoutQuery->fetchColumn();$decodedLayout=is_string($savedLayout)?json_decode($savedLayout,true):null;if(is_array($decodedLayout)){$overviewOrder=[];foreach($decodedLayout as $layoutKey){if(is_string($layoutKey)&&in_array($layoutKey,$defaultOverviewOrder,true)&&!in_array($layoutKey,$overviewOrder,true))$overviewOrder[]=$layoutKey;}foreach($defaultOverviewOrder as $layoutKey)if(!in_array($layoutKey,$overviewOrder,true))$overviewOrder[]=$layoutKey;}}
-$error='';$notice=isset($_GET['message_sent'])?'Nachricht wurde gesendet.':(isset($_GET['document_assigned'])?'Das Dokument wurde dem Klienten zugeordnet.':(isset($_GET['layout_saved'])?'Die Reihenfolge wurde für deinen Coach-Zugang gespeichert.':(isset($_GET['saved'])?'Der Klientenstatus wurde gespeichert.':'')));
+$error='';$notice=isset($_GET['item_saved'])?'Änderungen wurden gespeichert.':(isset($_GET['message_sent'])?'Nachricht wurde gesendet.':(isset($_GET['document_assigned'])?'Das Dokument wurde dem Klienten zugeordnet.':(isset($_GET['layout_saved'])?'Die Reihenfolge wurde für deinen Coach-Zugang gespeichert.':(isset($_GET['saved'])?'Der Klientenstatus wurde gespeichert.':''))));
+
+$overviewAction=(string)($_POST['action']??'');
+if($_SERVER['REQUEST_METHOD']==='POST'&&in_array($overviewAction,['save_appointment','save_goal','save_task'],true)){
+ if(!hash_equals($token,(string)($_POST['csrf_token']??''))){http_response_code(400);exit('Ungültige Anfrage.');}
+ if($admin)$error='Nur der zuständige Coach kann Termine, Ziele und Aufgaben bearbeiten.';
+ elseif($activeOrderId<1)$error='Für Änderungen muss ein aktiver Coaching-Auftrag vorhanden sein.';
+ else try{
+  $ownerCheck=$db->prepare('SELECT id FROM klienten WHERE id=:client AND benutzer_id=:coach');$ownerCheck->execute(['client'=>$id,'coach'=>(int)$user['id']]);if(!$ownerCheck->fetchColumn())throw new InvalidArgumentException('Der Klient gehört nicht zu deinem Coach-Zugang.');
+  $itemId=filter_var($_POST['item_id']??0,FILTER_VALIDATE_INT);$itemId=$itemId===false?0:(int)$itemId;
+  if($overviewAction==='save_appointment'){
+   $startInput=trim((string)($_POST['beginn']??''));$date=DateTime::createFromFormat('Y-m-d\\TH:i',$startInput);$dateErrors=DateTime::getLastErrors();
+   if(!$date||($dateErrors!==false&&($dateErrors['warning_count']>0||$dateErrors['error_count']>0))||$date->format('Y-m-d\\TH:i')!==$startInput)throw new InvalidArgumentException('Bitte Datum und Uhrzeit prüfen.');
+   $duration=filter_var($_POST['dauer_minuten']??null,FILTER_VALIDATE_INT);$topic=trim((string)($_POST['thema']??''));$format=(string)($_POST['format']??'');$status=(string)($_POST['termin_status']??'');
+   $termColumns=$db->query('SHOW COLUMNS FROM termine')->fetchAll(PDO::FETCH_ASSOC);$columnTypes=[];foreach($termColumns as $column)$columnTypes[$column['Field']]=$column['Type'];
+   $formats=overviewEnumOptions((string)($columnTypes['format']??''),['vor_ort','telefon','video']);$statuses=overviewEnumOptions((string)($columnTypes['status']??''),['geplant','stattgefunden','abgesagt']);
+   $topicColumn=null;foreach(['thema','titel','beschreibung'] as $candidate)if(isset($columnTypes[$candidate])){$topicColumn=$candidate;break;}
+   if($duration===false||(int)$duration<5||(int)$duration>600||!in_array($format,$formats,true)||!in_array($status,$statuses,true)||strlen($topic)>190)throw new InvalidArgumentException('Bitte Dauer, Format, Status und Thema prüfen.');
+   if($itemId>0){$check=$db->prepare('SELECT t.id FROM termine t INNER JOIN klienten k ON k.id=t.klient_id WHERE t.id=:item AND t.klient_id=:client AND t.auftrag_id=:order AND k.benutzer_id=:coach');$check->execute(['item'=>$itemId,'client'=>$id,'order'=>$activeOrderId,'coach'=>(int)$user['id']]);if(!$check->fetchColumn())throw new InvalidArgumentException('Termin nicht gefunden.');}
+   $topicSet=$topicColumn!==null?', '.$topicColumn.'=:topic':'';$params=['start'=>$date->format('Y-m-d H:i:s'),'duration'=>(int)$duration,'format'=>$format,'status'=>$status,'client'=>$id,'order'=>$activeOrderId];if($topicColumn!==null)$params['topic']=$topic;
+   if($itemId>0){$params['item']=$itemId;$db->prepare('UPDATE termine SET beginn=:start,dauer_minuten=:duration,format=:format,status=:status'.$topicSet.' WHERE id=:item AND klient_id=:client AND auftrag_id=:order')->execute($params);}
+   else{$engagement=coachingActiveEngagementId($db,$id);$cols='klient_id,auftrag_id,beginn,dauer_minuten,format,status'.($topicColumn!==null?','.$topicColumn:'');$vals=':client,:order,:start,:duration,:format,:status'.($topicColumn!==null?',:topic':'');$params['order']=$engagement;$db->prepare('INSERT INTO termine ('.$cols.') VALUES ('.$vals.')')->execute($params);}
+  }elseif($overviewAction==='save_goal'){
+   $title=trim((string)($_POST['titel']??''));$description=trim((string)($_POST['beschreibung']??''));$criterion=trim((string)($_POST['erfolgskriterium']??''));$due=trim((string)($_POST['zieltermin']??''));$status=(string)($_POST['ziel_status']??'aktiv');
+   if($title===''||strlen($title)>190||strlen($description)>20000||strlen($criterion)>20000||!in_array($status,['aktiv','pausiert','erreicht','abgebrochen'],true))throw new InvalidArgumentException('Bitte Titel und Zielstatus prüfen.');
+   if($due!==''&&(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$due)||!checkdate((int)substr($due,5,2),(int)substr($due,8,2),(int)substr($due,0,4))))throw new InvalidArgumentException('Bitte ein gültiges Zieldatum auswählen.');
+   $params=['title'=>$title,'description'=>$description?:null,'criterion'=>$criterion?:null,'due'=>$due?:null,'status'=>$status,'client'=>$id,'order'=>$activeOrderId,'coach'=>(int)$user['id']];
+   if($itemId>0){$params['item']=$itemId;$db->prepare('UPDATE coaching_ziele SET titel=:title,beschreibung=:description,erfolgskriterium=:criterion,zieltermin=:due,status=:status WHERE id=:item AND klient_id=:client AND auftrag_id=:order AND coach_benutzer_id=:coach')->execute($params);}
+   else{$db->prepare('INSERT INTO coaching_ziele (klient_id,coach_benutzer_id,auftrag_id,titel,beschreibung,erfolgskriterium,zieltermin,status) VALUES (:client,:coach,:order,:title,:description,:criterion,:due,:status)')->execute($params);}
+  }else{
+   $title=trim((string)($_POST['titel']??''));$description=trim((string)($_POST['beschreibung']??''));$due=trim((string)($_POST['faellig_am']??''));$status=(string)($_POST['aufgabe_status']??'offen');$visible=isset($_POST['klient_sichtbar'])?1:0;
+   if($title===''||strlen($title)>190||strlen($description)>10000||!in_array($status,['offen','in_bearbeitung','erledigt'],true))throw new InvalidArgumentException('Bitte Titel und Aufgabenstatus prüfen.');
+   if($due!==''&&(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$due)||!checkdate((int)substr($due,5,2),(int)substr($due,8,2),(int)substr($due,0,4))))throw new InvalidArgumentException('Bitte ein gültiges Fälligkeitsdatum auswählen.');
+   $params=['title'=>$title,'description'=>$description?:null,'due'=>$due?:null,'status'=>$status,'visible'=>$visible,'client'=>$id,'order'=>$activeOrderId,'coach'=>(int)$user['id']];
+   if($itemId>0){$params['item']=$itemId;$db->prepare('UPDATE coaching_aufgaben SET titel=:title,beschreibung=:description,faellig_am=:due,status=:status,klient_sichtbar=:visible WHERE id=:item AND klient_id=:client AND auftrag_id=:order AND coach_benutzer_id=:coach')->execute($params);}
+   else{$db->prepare('INSERT INTO coaching_aufgaben (klient_id,coach_benutzer_id,auftrag_id,titel,beschreibung,faellig_am,status,klient_sichtbar) VALUES (:client,:coach,:order,:title,:description,:due,:status,:visible)')->execute($params);}
+  }
+  $anchor=$overviewAction==='save_appointment'?'sessions':($overviewAction==='save_goal'?'goals':'tasks');header('Location: client-overview.php?id='.$id.'&item_saved=1#'.$anchor);exit;
+ }catch(InvalidArgumentException $e){$error=$e->getMessage();}catch(Throwable $e){error_log('Client overview item save failed: '.$e->getMessage());$error='Änderungen konnten nicht gespeichert werden. Bitte prüfe die aktive Auftragszuordnung und Tabellenrechte.';}
+}
 if($_SERVER['REQUEST_METHOD']==='POST'&&($_POST['action']??'')==='save_overview_layout'&&!$admin){
  if(!hash_equals($token,(string)($_POST['csrf_token']??''))){http_response_code(400);exit('Ungültige Anfrage.');}
  $submitted=json_decode((string)($_POST['layout_order']??''),true);
