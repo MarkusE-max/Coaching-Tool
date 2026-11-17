@@ -52,14 +52,9 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <div class="sidebar-submenu">
                             <a class="sidebar-link<?= $active === 'appointments' ? ' is-active' : '' ?>" href="appointments.php<?= $clientContextSuffix ?>"<?= $active === 'appointments' ? ' aria-current="page"' : '' ?>>Termine</a>
                             <a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php<?= $clientContextSuffix ?>"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a>
-                            <details class="sidebar-group"<?= in_array($active, ['engagements', 'goals'], true) ? ' open' : '' ?>>
-                                <summary><span>Aufträge &amp; Ziele</span></summary>
-                                <div class="sidebar-submenu">
-                                    <a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php<?= $clientContextSuffix ?>"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Aufträge</a>
-                                    <a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php<?= $clientContextSuffix ?>"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a>
-                                </div>
-                            </details>
-                            <a class="sidebar-link<?= $active === 'documents' ? ' is-active' : '' ?>" href="<?= coachingNavEscape($clientDocumentsHref) ?>"<?= $active === 'documents' ? ' aria-current="page"' : '' ?>>Dokumentation</a>
+                            <a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php<?= $clientContextSuffix ?>"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Aufträge</a>
+                            <a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php<?= $clientContextSuffix ?>"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a>
+                            <a class="sidebar-link<?= $active === 'documents' ? ' is-active' : '' ?>" href="<?= coachingNavEscape($clientDocumentsHref) ?>"<?= $active === 'documents' ? ' aria-current="page"' : '' ?>>Dokumente verwalten</a>
                             <a class="sidebar-link<?= $active === 'notes' ? ' is-active' : '' ?>" href="notes.php<?= $clientContextSuffix ?>"<?= $active === 'notes' ? ' aria-current="page"' : '' ?>>Private Sitzungsnotizen</a>
                             <a class="sidebar-link<?= $active === 'invoices' ? ' is-active' : '' ?>" href="invoices.php<?= $clientContextSuffix ?>"<?= $active === 'invoices' ? ' aria-current="page"' : '' ?>>Rechnung</a>
                         </div>
