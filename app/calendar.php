@@ -37,12 +37,14 @@ function coachingCalendarHttp(string $url, array $headers=[], ?string $body=null
 {
     if (!function_exists('curl_init')) throw new RuntimeException('PHP-cURL ist nicht aktiviert.');
     $ch=curl_init($url);
-    curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>25,CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_HTTPHEADER=>$headers,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
+    curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>25,CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_HTTPHEADER=>$headers,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
     if($body!==null)curl_setopt($ch,CURLOPT_POSTFIELDS,$body);
     if($basic!==null)curl_setopt($ch,CURLOPT_USERPWD,$basic[0].':'.$basic[1]);
-    $response=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$err=curl_error($ch);curl_close($ch);
+    $response=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$headerSize=(int)curl_getinfo($ch,CURLINFO_HEADER_SIZE);$err=curl_error($ch);curl_close($ch);
     if(!is_string($response))throw new RuntimeException('Kalenderdienst nicht erreichbar: '.$err);
-    return [$status,$response];
+    $rawHeaders=substr($response,0,$headerSize);$bodyText=substr($response,$headerSize);$location=null;
+    if(preg_match('/^Location:\\s*(.+)$/im',$rawHeaders,$m))$location=trim($m[1]);
+    return [$status,$bodyText,$location];
 }
 function coachingGoogleToken(array $settings, PDO $db): string
 {
@@ -68,13 +70,9 @@ function coachingGoogleCalendars(string $access): array
 }
 function coachingIcloudRequest(string $url, string $appleId, string $password, string $body, string $depth='0'): array
 {
-    [$status,$response]=coachingCalendarHttp($url,['Content-Type: application/xml; charset=utf-8','Depth: '.$depth],$body,'PROPFIND',[$appleId,$password]);
-    if(in_array($status,[301,302,307,308],true)){
-        // Apple routes accounts to a regional CalDAV host; only follow iCloud hosts.
-        $headers=get_headers($url, true);
-        $location=is_array($headers)?($headers['Location']??$headers['location']??null):null;
-        if(is_array($location))$location=end($location);
-        if(is_string($location)&&preg_match('~^https://[a-z0-9.-]+\\.icloud\\.com(?:/|$)~i',$location))return coachingCalendarHttp($location,['Content-Type: application/xml; charset=utf-8','Depth: '.$depth],$body,'PROPFIND',[$appleId,$password]);
+    [$status,$response,$location]=coachingCalendarHttp($url,['Content-Type: application/xml; charset=utf-8','Depth: '.$depth],$body,'PROPFIND',[$appleId,$password]);
+    if(in_array($status,[301,302,307,308],true)&&is_string($location)&&preg_match('~^https://[a-z0-9.-]+\\.icloud\\.com(?:/|$)~i',$location)){
+        [$status,$response]=coachingCalendarHttp($location,['Content-Type: application/xml; charset=utf-8','Depth: '.$depth],$body,'PROPFIND',[$appleId,$password]);
     }
     return [$status,$response];
 }
