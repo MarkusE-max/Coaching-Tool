@@ -59,6 +59,7 @@ if (!is_string($token) || strlen($token) !== 64) {
 $isAdmin = $user['role'] === 'admin';
 $error = $missing === [] ? '' : 'Die Tabelle termine hat nicht alle erwarteten Spalten.';
 $message = isset($_GET['saved']) ? 'Der Termin wurde gespeichert.' : '';
+$calendarWarning = (string)($_SESSION['calendar_sync_warning'] ?? ''); unset($_SESSION['calendar_sync_warning']);
 $values = ['id' => 0, 'klient_id' => 0, 'beginn' => '', 'dauer_minuten' => 60, 'format' => $formatOptions[0] ?? 'vor_ort', 'status' => $statusOptions[0] ?? 'geplant', 'thema' => ''];
 $clients = [];
 $appointments = [];
@@ -147,7 +148,7 @@ try {
             $insert->execute($params);
             $id=(int)$database->lastInsertId();
         }
-        if($calendarCoachId>0){try{coachingCalendarSyncAppointment($database,$calendarCoachId,$id);}catch(Throwable $syncError){error_log('Coaching Tool calendar sync failed: '.$syncError->getMessage());}}
+        if($calendarCoachId>0){try{coachingCalendarSyncAppointment($database,$calendarCoachId,$id);}catch(Throwable $syncError){error_log('Coaching Tool calendar sync failed: '.$syncError->getMessage());$_SESSION['calendar_sync_warning']='Termin wurde gespeichert, aber die Kalender-Synchronisierung ist fehlgeschlagen. Prüfe die Kalenderverbindung in Einstellungen > Kalender.';}}
         header('Location: appointments.php?saved=1&klient_id=' . $clientId);
         exit;
     }
@@ -203,6 +204,7 @@ $selectedClientName=$selectedClientId>0?trim(($clientsById[$selectedClientId]['v
 
 <h1>Terminverwaltung</h1><p>Plane Termine, ändere sie bei Bedarf und behalte den bisherigen Verlauf pro Klient im Blick.<?php if($selectedClientId>0):?> Nur Termine von <?= appointmentH($selectedClientName) ?> werden gezeigt. <a href="client-overview.php?id=<?=$selectedClientId?>">Zur Klientenakte</a> · <a href="appointments.php">Alle Klienten</a><?php endif;?></p>
 <?php if ($message !== ''): ?><p class="notice" role="status"><?= appointmentH($message) ?></p><?php endif; ?>
+<?php if ($calendarWarning !== ''): ?><p class="error" role="status"><?= appointmentH($calendarWarning) ?></p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="error" role="alert"><?= appointmentH($error) ?></p><?php endif; ?>
 <div class="layout"><section class="card"><h2><?= (int) $values['id'] > 0 ? 'Termin bearbeiten' : 'Termin anlegen' ?></h2>
 <?php if ($missing !== []): ?><p>Die Tabelle termine enthält nicht alle für die Terminverwaltung erforderlichen Felder.</p><?php elseif ($clients === []): ?><p>Lege zuerst einen Klienten an, bevor du einen Termin planst.</p><?php else: ?>
