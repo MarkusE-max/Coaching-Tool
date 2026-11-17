@@ -158,6 +158,7 @@ if ($currentUser !== null && ($currentUser['role'] ?? '') === 'client') {
 
 $clients = [];
 $appointments = [];
+$overdueAppointments = [];
 $activities = [];
 $dashboardError = '';
 if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
@@ -194,6 +195,9 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
                  ORDER BY t.beginn LIMIT 10"
             );
             $appointmentQuery->execute(['user_id' => (int) $currentUser['id']]);
+            $overdueQuery=$database->prepare("SELECT t.id,t.klient_id,t.beginn,t.dauer_minuten,t.format,k.vorname,k.nachname FROM termine t INNER JOIN klienten k ON k.id=t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.klient_id=t.klient_id AND a.status='aktiv' WHERE k.benutzer_id=:coach AND t.beginn<NOW() AND t.status NOT IN ('durchgefuehrt','durchgeführt','stattgefunden','abgeschlossen','abgesagt') AND NOT EXISTS (SELECT 1 FROM coaching_sitzungsnotizen n WHERE n.termin_id=t.id AND n.klient_id=t.klient_id AND n.coach_benutzer_id=:note_coach) ORDER BY t.beginn ASC LIMIT 20");
+            $overdueQuery->execute(['coach'=>(int)$currentUser['id'],'note_coach'=>(int)$currentUser['id']]);
+            $overdueAppointments=$overdueQuery->fetchAll();
         }
         $clients = $clientQuery->fetchAll();
         $appointments = $appointmentQuery->fetchAll();
@@ -330,6 +334,25 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                                         <strong><a href="client-overview.php?id=<?= h($activity['klient_id']) ?>#<?= $isMessage ? 'messages' : 'tasks' ?>"><?= h($activity['vorname'] . ' ' . $activity['nachname']) ?></a></strong>
                                         <small><?php if ($isMessage): ?>Neue Nachricht vom Coachee<?php else: ?>Aufgabe „<?= h($activity['objekt_titel']) ?>“: <?= h($activity['status_vorher'] ?? '') ?> → <?= h($activity['status_nachher'] ?? '') ?><?php endif; ?></small>
                                         <time><?= h(date('d.m.Y · H:i', strtotime($activity['erstellt_am']))) ?></time>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                    </section>
+                    <?php endif; ?>
+
+                    <?php if ($currentUser['role'] === 'coach'): ?>
+                    <section class="data-card">
+                        <div class="card-heading"><h2>Überfällige Termine ohne Abschluss</h2><span><?= count($overdueAppointments) ?></span></div>
+                        <?php if ($overdueAppointments === []): ?>
+                            <p class="empty-state">Keine überfälligen Termine ohne Durchführungsstatus oder Sitzungsnotiz.</p>
+                        <?php else: ?>
+                            <ul class="appointment-list">
+                                <?php foreach ($overdueAppointments as $appointment): ?>
+                                    <li>
+                                        <time><?= h(date('d.m.Y · H:i', strtotime($appointment['beginn']))) ?></time>
+                                        <strong><a href="client-overview.php?id=<?= h($appointment['klient_id']) ?>"><?= h($appointment['vorname'] . ' ' . $appointment['nachname']) ?></a></strong>
+                                        <small>Termin noch offen · <a href="appointments.php?edit=<?= h($appointment['id']) ?>&amp;klient_id=<?= h($appointment['klient_id']) ?>">Termin bearbeiten</a> · <a href="notes.php?termin_id=<?= h($appointment['id']) ?>&amp;klient_id=<?= h($appointment['klient_id']) ?>">Sitzungsnotiz hinzufügen</a></small>
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
