@@ -72,9 +72,9 @@ function coachingIcloudRequest(string $url, string $appleId, string $password, s
 {
     [$status,$response,$location]=coachingCalendarHttp($url,['Content-Type: application/xml; charset=utf-8','Depth: '.$depth],$body,'PROPFIND',[$appleId,$password]);
     if(in_array($status,[301,302,307,308],true)&&is_string($location)&&preg_match('~^https://[a-z0-9.-]+\\.icloud\\.com(?:/|$)~i',$location)){
-        [$status,$response]=coachingCalendarHttp($location,['Content-Type: application/xml; charset=utf-8','Depth: '.$depth],$body,'PROPFIND',[$appleId,$password]);
+        $url=$location;[$status,$response]=coachingCalendarHttp($url,['Content-Type: application/xml; charset=utf-8','Depth: '.$depth],$body,'PROPFIND',[$appleId,$password]);
     }
-    return [$status,$response];
+    return [$status,$response,$url];
 }
 function coachingIcloudCalendars(string $appleId, string $password): array
 {
@@ -94,7 +94,7 @@ function coachingIcloudCalendars(string $appleId, string $password): array
     if($home==='')throw new RuntimeException('iCloud hat keinen Kalenderbereich zurückgegeben.');
     $homeUrl=str_starts_with($home,'http')?$home:'https://caldav.icloud.com'.$home;
     $listReq='<?xml version="1.0"?><d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:displayname/><d:resourcetype/><d:current-user-privilege-set/></d:prop></d:propfind>';
-    [$status,$xml]=coachingIcloudRequest($homeUrl,$appleId,$password,$listReq,'1');
+    [$status,$xml,$effectiveHomeUrl]=coachingIcloudRequest($homeUrl,$appleId,$password,$listReq,'1');
     if(!in_array($status,[207,200],true)||!@$doc->loadXML($xml))throw new RuntimeException('iCloud-Kalenderliste konnte nicht geladen werden.');
     $xp=new DOMXPath($doc);$xp->registerNamespace('d','DAV:');$xp->registerNamespace('c','urn:ietf:params:xml:ns:caldav');$out=[];
     foreach($xp->query('//*[local-name()="response"]') as $resp){
@@ -102,10 +102,18 @@ function coachingIcloudCalendars(string $appleId, string $password): array
         $name=$xp->evaluate('string(.//*[local-name()="displayname"])',$resp);
         $isCal=(bool)$xp->query('.//*[local-name()="resourcetype"]/*[local-name()="calendar"]',$resp)->length;
         $canWrite=(bool)$xp->query('.//*[local-name()="current-user-privilege-set"]//*[local-name()="write"]',$resp)->length;
-        if($isCal&&$href!==''&&$canWrite){$absolute=str_starts_with($href,'http')?$href:'https://caldav.icloud.com'.$href;$out[]=['id'=>rtrim($absolute,'/').'/','name'=>$name?:$href];}
+        if($isCal&&$href!==''&&$canWrite){$parts=parse_url($effectiveHomeUrl);$origin='https://'.(string)($parts['host']??'caldav.icloud.com');$absolute=str_starts_with($href,'http')?$href:$origin.$href;$out[]=['id'=>rtrim($absolute,'/').'/','name'=>$name?:$href];}
     }
     if($out===[])throw new RuntimeException('Keine beschreibbaren iCloud-Kalender gefunden. Prüfe die Schreibfreigabe.');
     return $out;
+}
+function coachingIcloudHttp(string $url,string $appleId,string $password,array $headers,?string $body,string $method): array
+{
+    [$status,$response,$location]=coachingCalendarHttp($url,$headers,$body,$method,[$appleId,$password]);
+    if(in_array($status,[301,302,307,308],true)&&is_string($location)&&preg_match('~^https://[a-z0-9.-]+\\.icloud\\.com(?:/|$)~i',$location)){
+        [$status,$response]=coachingCalendarHttp($location,$headers,$body,$method,[$appleId,$password]);
+    }
+    return [$status,$response];
 }
 function coachingCalendarIcsEscape(string $v): string
 {
@@ -142,12 +150,12 @@ function coachingCalendarSyncAppointment(PDO $db, int $coachId, int $appointment
         $apple=coachingCalendarDecrypt($s['icloud_passwort_verschluesselt']??null);$cal=(string)$s['kalender_id'];$uid=hash('sha256',$coachId.':'.$appointmentId).'@coaching-tool';
         $url=rtrim($cal,'/').'/'.rawurlencode($uid).'.ics';
         if($e['status']==='abgesagt'){
-            if($remoteId){[$st]=coachingCalendarHttp((string)$remoteId,['Content-Type: text/calendar'],null,'DELETE',[(string)$s['apple_id'],$apple]);if(!in_array($st,[200,204,404],true))throw new RuntimeException('iCloud-Termin konnte nicht entfernt werden.');}
+            if($remoteId){[$st]=coachingIcloudHttp((string)$remoteId,(string)$s['apple_id'],$apple,['Content-Type: text/calendar'],null,'DELETE');if(!in_array($st,[200,204,404],true))throw new RuntimeException('iCloud-Termin konnte nicht entfernt werden.');}
         }else{
             $start=(new DateTimeImmutable((string)$e['beginn'],new DateTimeZone('Europe/Berlin')))->setTimezone(new DateTimeZone('UTC'));
             $end=$start->modify('+'.(int)$e['dauer_minuten'].' minutes');$summary=(int)$s['klientenname_anzeigen']===1?trim($e['vorname'].' '.$e['nachname']):'Coachingtermin';
             $ics="BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Coaching Tool//Kalender 1.0//DE\r\nBEGIN:VEVENT\r\nUID:".$uid."\r\nDTSTAMP:".gmdate('Ymd\THis\Z')."\r\nDTSTART:".$start->format('Ymd\THis\Z')."\r\nDTEND:".$end->format('Ymd\THis\Z')."\r\nSUMMARY:".coachingCalendarIcsEscape($summary)."\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
-            [$st]=coachingCalendarHttp($url,['Content-Type: text/calendar; charset=utf-8'],$ics,'PUT',[(string)$s['apple_id'],$apple]);
+            [$st]=coachingIcloudHttp($url,(string)$s['apple_id'],$apple,['Content-Type: text/calendar; charset=utf-8'],$ics,'PUT');
             if(!in_array($st,[201,204],true))throw new RuntimeException('iCloud-Termin konnte nicht synchronisiert werden (HTTP '.$st.').');$remoteId=$url;
         }
     }else return;
