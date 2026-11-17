@@ -54,6 +54,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   if($action==='save'){
    $provider=(string)($_POST['provider']??'');$calendar=(string)($_POST['kalender_id']??'');$name=(string)($_POST['kalender_name']??'');
    if(!in_array($provider,['google','icloud'],true)||$calendar===''||strlen($calendar)>1000)throw new RuntimeException('Bitte einen Kalender auswählen.');
+   if($provider==='google'){
+    $current=coachingCalendarSettings($db,$id);$access=coachingGoogleToken($current+['benutzer_id'=>$id],$db);$available=coachingGoogleCalendars($access);
+   }else{
+    $current=coachingCalendarSettings($db,$id);if(empty($current['icloud_passwort_verschluesselt']))throw new RuntimeException('Verbinde zuerst dein iCloud-Konto.');
+    $available=coachingIcloudCalendars((string)$current['apple_id'],coachingCalendarDecrypt($current['icloud_passwort_verschluesselt']));
+   }
+   if(!in_array($calendar,array_column($available,'id'),true))throw new RuntimeException('Der ausgewählte Kalender ist nicht für dieses Konto freigegeben.');
    $up=$db->prepare('UPDATE coaching_kalender_einstellungen SET provider=:provider,kalender_id=:cal,kalender_name=:name,klientenname_anzeigen=:show,aktiv=:active WHERE benutzer_id=:id');
    $up->execute(['provider'=>$provider,'cal'=>$calendar,'name'=>$name,'show'=>isset($_POST['klientenname_anzeigen'])?1:0,'active'=>isset($_POST['aktiv'])?1:0,'id'=>$id]);
    header('Location: calendar-settings.php?saved=1');exit;
