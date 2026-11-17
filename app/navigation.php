@@ -23,8 +23,6 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements', 'notes', 'invoices'], true);
     $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'format-categories'], true);
-    $knowledgeOpen = in_array($active, ['formats', 'format-categories'], true);
-    $adminOpen = in_array($active, ['coaches', 'managers', 'format-categories'], true);
     require_once dirname(__DIR__) . '/app/theme.php';
     $themeDatabase = coachingDatabase();
     echo '<style>' . coachingThemeCss($themeDatabase, (int) $user['id']) . '</style>';
@@ -83,7 +81,6 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <a class="sidebar-link<?= $active === 'calendar-settings' ? ' is-active' : '' ?>" href="calendar-settings.php"<?= $active === 'calendar-settings' ? ' aria-current="page"' : '' ?>>Kalender</a>
                         <a class="sidebar-link<?= $active === 'documents' ? ' is-active' : '' ?>" href="documents.php"<?= $active === 'documents' ? ' aria-current="page"' : '' ?>>Dokumente</a>
                         <?php endif; ?>
-                    </div>
                         <?php if ($isAdmin || $isManager): ?>
                         <hr class="sidebar-divider"><span class="sidebar-section-label">Verwaltung</span>
                         <?php if ($isAdmin): ?>
