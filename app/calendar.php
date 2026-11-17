@@ -122,10 +122,11 @@ function coachingCalendarIcsEscape(string $v): string
 function coachingCalendarSyncAppointment(PDO $db, int $coachId, int $appointmentId): void
 {
     $s=coachingCalendarSettings($db,$coachId);if((int)($s['aktiv']??0)!==1||empty($s['kalender_id']))return;
-    $q=$db->prepare('SELECT t.id,t.beginn,t.dauer_minuten,t.format,t.status,t.thema,k.vorname,k.nachname FROM termine t JOIN klienten k ON k.id=t.klient_id WHERE t.id=:id AND k.benutzer_id=:coach');
+    $q=$db->prepare('SELECT t.id,t.beginn,t.dauer_minuten,t.format,t.status,k.vorname,k.nachname FROM termine t JOIN klienten k ON k.id=t.klient_id WHERE t.id=:id AND k.benutzer_id=:coach');
     $q->execute(['id'=>$appointmentId,'coach'=>$coachId]);$e=$q->fetch(PDO::FETCH_ASSOC);if(!$e)return;
-    $mapq=$db->prepare('SELECT remote_id FROM coaching_kalender_termine WHERE benutzer_id=:coach AND termin_id=:id');
-    $mapq->execute(['coach'=>$coachId,'id'=>$appointmentId]);$remoteId=$mapq->fetchColumn();
+    $mapq=$db->prepare('SELECT remote_id,provider,kalender_id FROM coaching_kalender_termine WHERE benutzer_id=:coach AND termin_id=:id');
+    $mapq->execute(['coach'=>$coachId,'id'=>$appointmentId]);$mapping=$mapq->fetch(PDO::FETCH_ASSOC);
+    $remoteId=$mapping&&$mapping['provider']===$s['provider']&&$mapping['kalender_id']===$s['kalender_id']?$mapping['remote_id']:null;
     if($s['provider']==='google'){
         $access=coachingGoogleToken($s+['benutzer_id'=>$coachId],$db);$cal=rawurlencode((string)$s['kalender_id']);
         if($e['status']==='abgesagt'){
