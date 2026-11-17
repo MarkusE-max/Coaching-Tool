@@ -22,14 +22,15 @@ $coachId = (int) $user['id'];
 $clientId = (int) ($user['client_id'] ?? 0);
 $isClient = ($user['role'] ?? '') === 'client';
 if ($isClient) {
-    $activeCheck = $database->prepare('SELECT aktiv FROM coaching_portal_zugaenge WHERE id = :id AND klient_id = :client');
+    $activeCheck = $database->prepare('SELECT aktiv,zeige_dokumente FROM coaching_portal_zugaenge WHERE id = :id AND klient_id = :client');
     $activeCheck->execute(['id' => $coachId, 'client' => $clientId]);
-    if ((int) $activeCheck->fetchColumn() !== 1) {
+    $portalAccess=$activeCheck->fetch(PDO::FETCH_ASSOC);if (!$portalAccess || (int)$portalAccess['aktiv'] !== 1) {
         unset($_SESSION['user']);
         session_regenerate_id(true);
         http_response_code(403);
         exit('Der Coachee-Zugang ist nicht aktiv.');
     }
+    if((int)$portalAccess['zeige_dokumente']!==1){http_response_code(403);exit('Dokumente sind für deinen Zugang nicht freigegeben.');}
 }
 $type = is_string($_GET['type'] ?? null) ? $_GET['type'] : '';
 $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
