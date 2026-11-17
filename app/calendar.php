@@ -101,12 +101,16 @@ function coachingCalendarSyncAppointment(PDO $db, int $coachId, int $appointment
             $summary=(int)$s['klientenname_anzeigen']===1?trim($e['vorname'].' '.$e['nachname']):'Coachingtermin';
             $event=['summary'=>$summary,'description'=>'Coachingtermin · '.(string)$e['format'],'start'=>['dateTime'=>$start->format(DateTime::RFC3339),'timeZone'=>'Europe/Berlin'],'end'=>['dateTime'=>$end->format(DateTime::RFC3339),'timeZone'=>'Europe/Berlin']];
             $eventId='ct'.substr(hash('sha256',(string)$coachId.':'.$appointmentId),0,40);
-            $method=$remoteId?'PATCH':'PUT';$id=$remoteId?:$eventId;
-            $url='https://www.googleapis.com/calendar/v3/calendars/'.$cal.'/events/'.rawurlencode($id);
-            [$st,$resp]=coachingCalendarHttp($url,['Authorization: Bearer '.$access,'Content-Type: application/json'],json_encode($event,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$method);
-            if(!$remoteId&&$st===404){[$st,$resp]=coachingCalendarHttp('https://www.googleapis.com/calendar/v3/calendars/'.$cal.'/events?sendUpdates=none',['Authorization: Bearer '.$access,'Content-Type: application/json'],json_encode($event,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'POST');}
+            $event['id']=$eventId;
+            if($remoteId){
+                $url='https://www.googleapis.com/calendar/v3/calendars/'.$cal.'/events/'.rawurlencode((string)$remoteId);
+                [$st,$resp]=coachingCalendarHttp($url,['Authorization: Bearer '.$access,'Content-Type: application/json'],json_encode($event,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'PATCH');
+            }else{
+                $url='https://www.googleapis.com/calendar/v3/calendars/'.$cal.'/events?sendUpdates=none';
+                [$st,$resp]=coachingCalendarHttp($url,['Authorization: Bearer '.$access,'Content-Type: application/json'],json_encode($event,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'POST');
+            }
             if(!in_array($st,[200,201],true))throw new RuntimeException('Google-Termin konnte nicht synchronisiert werden (HTTP '.$st.').');
-            $data=json_decode($resp,true);$remoteId=(string)($data['id']??$id);
+            $data=json_decode($resp,true);$remoteId=(string)($data['id']??$eventId);
         }
     }elseif($s['provider']==='icloud'){
         $apple=coachingCalendarDecrypt($s['icloud_passwort_verschluesselt']??null);$cal=(string)$s['kalender_id'];$uid=hash('sha256',$coachId.':'.$appointmentId).'@coaching-tool';
@@ -121,6 +125,7 @@ function coachingCalendarSyncAppointment(PDO $db, int $coachId, int $appointment
             if(!in_array($st,[201,204],true))throw new RuntimeException('iCloud-Termin konnte nicht synchronisiert werden (HTTP '.$st.').');$remoteId=$url;
         }
     }else return;
+    if($e['status']==='abgesagt'&&$remoteId){$del=$db->prepare('DELETE FROM coaching_kalender_termine WHERE benutzer_id=:coach AND termin_id=:id');$del->execute(['coach'=>$coachId,'id'=>$appointmentId]);return;}
     if($remoteId){$save=$db->prepare('INSERT INTO coaching_kalender_termine (benutzer_id,termin_id,provider,remote_id,kalender_id,abgeglichen_am) VALUES (:coach,:id,:provider,:remote,:calendar,NOW()) ON DUPLICATE KEY UPDATE provider=VALUES(provider),remote_id=VALUES(remote_id),kalender_id=VALUES(kalender_id),abgeglichen_am=NOW()');$save->execute(['coach'=>$coachId,'id'=>$appointmentId,'provider'=>$s['provider'],'remote'=>$remoteId,'calendar'=>$s['kalender_id']]);}
     elseif($e['status']==='abgesagt'){$del=$db->prepare('DELETE FROM coaching_kalender_termine WHERE benutzer_id=:coach AND termin_id=:id');$del->execute(['coach'=>$coachId,'id'=>$appointmentId]);}
 }
