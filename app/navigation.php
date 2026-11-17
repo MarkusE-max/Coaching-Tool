@@ -16,7 +16,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements'], true);
-    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents'], true);
+    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings'], true);
     $knowledgeOpen = in_array($active, ['formats', 'format-categories'], true);
     $adminOpen = in_array($active, ['coaches', 'managers', 'format-categories'], true);
     require_once dirname(__DIR__) . '/app/theme.php';
@@ -76,6 +76,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <a class="sidebar-link<?= $active === 'email-settings' ? ' is-active' : '' ?>" href="email-settings.php"<?= $active === 'email-settings' ? ' aria-current="page"' : '' ?>>E-Mail & Passwort-Reset</a>
                         <a class="sidebar-link<?= $active === 'design' ? ' is-active' : '' ?>" href="design-settings.php"<?= $active === 'design' ? ' aria-current="page"' : '' ?>>Schrift und Farben</a>
                         <?php if ($role === 'coach'): ?>
+                        <a class="sidebar-link<?= $active === 'calendar-settings' ? ' is-active' : '' ?>" href="calendar-settings.php"<?= $active === 'calendar-settings' ? ' aria-current="page"' : '' ?>>Kalender</a>
                         <a class="sidebar-link<?= $active === 'documents' ? ' is-active' : '' ?>" href="documents.php"<?= $active === 'documents' ? ' aria-current="page"' : '' ?>>Dokumente</a>
                         <?php endif; ?>
                     </div>
