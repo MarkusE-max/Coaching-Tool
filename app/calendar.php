@@ -143,6 +143,10 @@ function coachingCalendarSyncAppointment(PDO $db, int $coachId, int $appointment
                 $url='https://www.googleapis.com/calendar/v3/calendars/'.$cal.'/events?sendUpdates=none';
                 [$st,$resp]=coachingCalendarHttp($url,['Authorization: Bearer '.$access,'Content-Type: application/json'],json_encode($event,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'POST');
             }
+            if(!$remoteId&&$st===409){
+                $url='https://www.googleapis.com/calendar/v3/calendars/'.$cal.'/events/'.rawurlencode($eventId);
+                [$st,$resp]=coachingCalendarHttp($url,['Authorization: Bearer '.$access,'Content-Type: application/json'],json_encode($event,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'PATCH');
+            }
             if(!in_array($st,[200,201],true))throw new RuntimeException('Google-Termin konnte nicht synchronisiert werden (HTTP '.$st.').');
             $data=json_decode($resp,true);$remoteId=(string)($data['id']??$eventId);
         }
