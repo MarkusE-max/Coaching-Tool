@@ -8,6 +8,7 @@ session_set_cookie_params(['httponly' => true, 'secure' => $isHttps, 'samesite' 
 session_start();
 header('Cache-Control: no-store, private');
 require_once dirname(__DIR__) . '/app/bootstrap.php';
+require_once dirname(__DIR__) . '/app/calendar.php';
 
 function appointmentH(string|int|null $value): string
 {
@@ -111,13 +112,15 @@ try {
             throw new InvalidArgumentException('Bitte prüfe Klient, Datum, Dauer, Format und Status.');
         }
 
-        $clientCheck = $database->prepare('SELECT id FROM klienten WHERE id = :id' . ($isAdmin ? '' : ' AND benutzer_id = :owner'));
+        $clientCheck = $database->prepare('SELECT id, benutzer_id FROM klienten WHERE id = :id' . ($isAdmin ? '' : ' AND benutzer_id = :owner'));
         $clientParams = ['id' => $clientId];
         if (!$isAdmin) $clientParams['owner'] = (int) $user['id'];
         $clientCheck->execute($clientParams);
-        if (!$clientCheck->fetchColumn()) {
+        $clientRecord = $clientCheck->fetch(PDO::FETCH_ASSOC);
+        if (!$clientRecord) {
             throw new InvalidArgumentException('Der ausgewählte Klient gehört nicht zu deinem Zugang.');
         }
+        $calendarCoachId=(int)$clientRecord['benutzer_id'];
         $engagementId = coachingActiveEngagementId($database, $clientId);
 
         if ($id > 0) {
@@ -142,7 +145,9 @@ try {
             if ($topicColumn !== null) { $insertColumns[] = $topicColumn; $insertValues[] = ':topic'; }
             $insert = $database->prepare('INSERT INTO termine (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $insertValues) . ')');
             $insert->execute($params);
+            $id=(int)$database->lastInsertId();
         }
+        if($calendarCoachId>0){try{coachingCalendarSyncAppointment($database,$calendarCoachId,$id);}catch(Throwable $syncError){error_log('Coaching Tool calendar sync failed: '.$syncError->getMessage());}}
         header('Location: appointments.php?saved=1&klient_id=' . $clientId);
         exit;
     }
