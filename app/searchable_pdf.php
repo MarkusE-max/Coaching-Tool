@@ -60,7 +60,7 @@ function coachingSearchablePdf(array $records, string $clientName): string
             continue;
         }
         $heading = $tableLabels[$table] ?? ucwords(str_replace('_', ' ', (string) $table));
-        $lines[] = '## ' . $heading;
+        $lines[] = '## ' . coachingPdfText($heading);
         foreach ($rows as $rowIndex => $row) {
             if (!is_array($row)) {
                 continue;
