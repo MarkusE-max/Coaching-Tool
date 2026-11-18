@@ -20,14 +20,26 @@ if (!is_array($currentUser) || ($currentUser['role'] ?? '') !== 'admin') {
     exit('Kein Zugriff. Nur Administratoren können Admin-Konten anlegen.');
 }
 
-$database = coachingDatabase();
-$activeAdmin = $database->prepare("SELECT id FROM benutzer WHERE id = :id AND rolle = 'admin' AND aktiv = 1 LIMIT 1");
-$activeAdmin->execute(['id' => (int) $currentUser['id']]);
-if (!$activeAdmin->fetchColumn()) {
-    unset($_SESSION['user']);
-    session_regenerate_id(true);
-    http_response_code(403);
-    exit('Dein Admin-Konto ist nicht mehr aktiv.');
+$database = null;
+$admins = [];
+$error = '';
+try {
+    $database = coachingDatabase();
+    $activeAdmin = $database->prepare("SELECT id FROM benutzer WHERE id = :id AND rolle = 'admin' AND aktiv = 1 LIMIT 1");
+    $activeAdmin->execute(['id' => (int) $currentUser['id']]);
+    if (!$activeAdmin->fetchColumn()) {
+        unset($_SESSION['user']);
+        session_regenerate_id(true);
+        http_response_code(403);
+        exit('Dein Admin-Konto ist nicht mehr aktiv.');
+    }
+    $admins = $database->query(
+        "SELECT id, vorname, nachname, benutzername, email, aktiv FROM benutzer WHERE rolle = 'admin' ORDER BY aktiv DESC, nachname, vorname"
+    )->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $exception) {
+    error_log('Coaching Tool admin account page could not load: ' . $exception->getMessage());
+    $database = null;
+    $error = 'Admin-Konten konnten nicht geladen werden. Prüfe die Datenbankverbindung sowie SELECT-Rechte auf benutzer.';
 }
 $token = $_SESSION['csrf_token'] ?? '';
 if (!is_string($token) || strlen($token) !== 64) {
@@ -35,11 +47,10 @@ if (!is_string($token) || strlen($token) !== 64) {
     $_SESSION['csrf_token'] = $token;
 }
 
-$error = '';
 $notice = isset($_GET['created']) && $_GET['created'] === '1' ? 'Das Admin-Konto wurde angelegt.' : '';
 $values = ['vorname' => '', 'nachname' => '', 'username' => '', 'email' => ''];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $database instanceof PDO) {
     $postedToken = $_POST['csrf_token'] ?? '';
     $firstName = trim(is_string($_POST['vorname'] ?? null) ? $_POST['vorname'] : '');
     $lastName = trim(is_string($_POST['nachname'] ?? null) ? $_POST['nachname'] : '');
@@ -80,9 +91,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$admins = $database->query(
-    "SELECT id, vorname, nachname, benutzername, email, aktiv FROM benutzer WHERE rolle = 'admin' ORDER BY aktiv DESC, nachname, vorname"
-)->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
 <html lang="de">
@@ -101,6 +109,7 @@ $admins = $database->query(
 <p class="muted">Nur Administratoren können weitere Admin-Zugänge anlegen. Das Passwort wird geschützt gespeichert.</p>
 <?php if ($notice !== ''): ?><p class="notice" role="status"><?= adminAccountH($notice) ?></p><?php endif; ?>
 <?php if ($error !== ''): ?><p class="error" role="alert"><?= adminAccountH($error) ?></p><?php endif; ?>
+<?php if ($database instanceof PDO): ?>
 <div class="grid">
 <section class="card">
 <h2>Admin-Konto anlegen</h2>
@@ -122,6 +131,7 @@ $admins = $database->query(
 <?php endforeach; endif; ?>
 </section>
 </div>
+<?php endif; ?>
 </main>
 </body>
 </html>
