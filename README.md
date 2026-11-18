@@ -55,6 +55,8 @@ This setup is available only while `benutzer` is empty. It requires HTTPS and a 
 
 The setup key and new password are submitted only over HTTPS. Never send them in chat or commit them to GitHub.
 
+After the first administrator is set up, an authenticated administrator can add additional administrator accounts under Einstellungen > Verwaltung > Admin-Konten. The page rejects access by Coaches, Coachees and Verwalter accounts; no extra database migration is required.
+
 ## Local development
 
 Requires PHP 8.2 with PDO MySQL and access to MariaDB. Copy `config.example.php` to `config.local.php`, configure local credentials, then run:
