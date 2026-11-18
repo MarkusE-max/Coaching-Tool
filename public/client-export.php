@@ -9,6 +9,7 @@ session_start();
 header('Cache-Control: no-store, private');
 require_once dirname(__DIR__) . '/app/bootstrap.php';
 require_once dirname(__DIR__) . '/app/document_storage.php';
+require_once dirname(__DIR__) . '/app/searchable_pdf.php';
 
 $user = $_SESSION['user'] ?? null;
 if (!is_array($user) || ($user['role'] ?? '') !== 'coach' || !isset($user['id'])) {
@@ -24,10 +25,16 @@ if (!is_string($sessionToken) || !hash_equals($sessionToken, (string) ($_POST['c
     http_response_code(400);
     exit('Ungültige Anfrage. Bitte lade die Klientenakte neu.');
 }
-if (!class_exists(ZipArchive::class)) {
-    http_response_code(503);
-    exit('Der Datenexport benötigt die PHP-Erweiterung zip. Bitte aktiviere sie im PHP-8.2-Profil.');
+$exportFormat = is_string($_POST['format'] ?? null) ? $_POST['format'] : 'zip';
+if (!in_array($exportFormat, ['zip', 'pdf'], true)) {
+    http_response_code(400);
+    exit('Ungültiges Exportformat.');
 }
+if ($exportFormat === 'zip' && !class_exists(ZipArchive::class)) {
+    http_response_code(503);
+    exit('Der vollständige Datenexport benötigt die PHP-Erweiterung zip. Bitte aktiviere sie im PHP-8.2-Profil.');
+}
+
 
 final class ClientExportException extends RuntimeException {}
 
@@ -38,6 +45,11 @@ function exportIdentifier(string $value): string
 function exportSafeFilename(string $name): string
 {
     $name = basename(str_replace('\\', '/', $name));
+    $name = strtr($name, ['Ä' => 'Ae', 'Ö' => 'Oe', 'Ü' => 'Ue', 'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss']);
+    if (function_exists('iconv')) {
+        $asciiName = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
+        if (is_string($asciiName)) $name = $asciiName;
+    }
     $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?? 'datei';
     return trim($name, '._-') ?: 'datei';
 }
@@ -143,6 +155,18 @@ try {
         'files' => array_map(static fn(array $entry): array => ['archive_path' => $entry['archive_name'], 'original_name' => $entry['originalname'], 'source_table' => $entry['source_table']], array_values($fileEntries)),
     ];
     $json = json_encode($records, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+
+    if ($exportFormat === 'pdf') {
+        $clientName = trim((string) ($client['vorname'] ?? '') . ' ' . (string) ($client['nachname'] ?? ''));
+        $pdf = coachingSearchablePdf($records, $clientName);
+        $name = exportSafeFilename(trim((string) ($client['nachname'] ?? 'klient')) . '-' . trim((string) ($client['vorname'] ?? '')) . '-datenexport-' . date('Y-m-d') . '.pdf');
+        header('Content-Type: application/pdf');
+        header('Content-Length: ' . (string) strlen($pdf));
+        header('Content-Disposition: attachment; filename="' . $name . '"; filename*=UTF-8\\'\\'' . rawurlencode($name));
+        header('X-Content-Type-Options: nosniff');
+        echo $pdf;
+        exit;
+    }
 
     $temporary = tempnam(sys_get_temp_dir(), 'coaching-export-');
     if (!is_string($temporary)) throw new ClientExportException('Temporäre Exportdatei konnte nicht erstellt werden.');
