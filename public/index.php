@@ -165,15 +165,19 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
     try {
         if (in_array($currentUser['role'], ['admin', 'verwalter'], true)) {
             $clientQuery = $database->query(
-                'SELECT id, vorname, nachname, status, startdatum
-                 FROM klienten ORDER BY nachname, vorname LIMIT 100'
+                "SELECT k.id, k.vorname, k.nachname, COALESCE(cs.status, 'aktiv') AS status, k.startdatum
+                 FROM klienten k LEFT JOIN coaching_klientenstatus cs ON cs.klient_id = k.id
+                 WHERE COALESCE(cs.status, 'aktiv') <> 'abgeschlossen'
+                 ORDER BY k.nachname, k.vorname LIMIT 100"
             );
             if ($currentUser['role'] === 'admin') {
                 $appointmentQuery = $database->query(
                     "SELECT t.beginn, t.dauer_minuten, t.format, k.id AS klient_id, k.vorname, k.nachname
                      FROM termine t
                      INNER JOIN klienten k ON k.id = t.klient_id
-                     WHERE t.status = 'geplant' AND t.beginn >= NOW()
+                     LEFT JOIN coaching_klientenstatus cs ON cs.klient_id = k.id
+                     WHERE COALESCE(cs.status, 'aktiv') <> 'abgeschlossen'
+                       AND t.status = 'geplant' AND t.beginn >= NOW()
                      ORDER BY t.beginn LIMIT 10"
                 );
             } else {
@@ -181,21 +185,24 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
             }
         } else {
             $clientQuery = $database->prepare(
-                'SELECT id, vorname, nachname, status, startdatum
-                 FROM klienten WHERE benutzer_id = :user_id
-                 ORDER BY nachname, vorname LIMIT 100'
+                "SELECT k.id, k.vorname, k.nachname, COALESCE(cs.status, 'aktiv') AS status, k.startdatum
+                 FROM klienten k LEFT JOIN coaching_klientenstatus cs ON cs.klient_id = k.id
+                 WHERE k.benutzer_id = :user_id AND COALESCE(cs.status, 'aktiv') <> 'abgeschlossen'
+                 ORDER BY k.nachname, k.vorname LIMIT 100"
             );
             $clientQuery->execute(['user_id' => (int) $currentUser['id']]);
             $appointmentQuery = $database->prepare(
                 "SELECT t.beginn, t.dauer_minuten, t.format, k.id AS klient_id, k.vorname, k.nachname
                  FROM termine t
                  INNER JOIN klienten k ON k.id = t.klient_id
+                 LEFT JOIN coaching_klientenstatus cs ON cs.klient_id = k.id
                  WHERE k.benutzer_id = :user_id
+                   AND COALESCE(cs.status, 'aktiv') <> 'abgeschlossen'
                    AND t.status = 'geplant' AND t.beginn >= NOW()
                  ORDER BY t.beginn LIMIT 10"
             );
             $appointmentQuery->execute(['user_id' => (int) $currentUser['id']]);
-            $overdueQuery=$database->prepare("SELECT t.id,t.klient_id,t.beginn,t.dauer_minuten,t.format,k.vorname,k.nachname FROM termine t INNER JOIN klienten k ON k.id=t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.klient_id=t.klient_id AND a.status='aktiv' WHERE k.benutzer_id=:coach AND t.beginn<NOW() AND t.status NOT IN ('durchgefuehrt','durchgeführt','stattgefunden','abgeschlossen','abgesagt') AND NOT EXISTS (SELECT 1 FROM coaching_sitzungsnotizen n WHERE n.termin_id=t.id AND n.klient_id=t.klient_id AND n.coach_benutzer_id=:note_coach) ORDER BY t.beginn ASC LIMIT 20");
+            $overdueQuery=$database->prepare("SELECT t.id,t.klient_id,t.beginn,t.dauer_minuten,t.format,k.vorname,k.nachname FROM termine t INNER JOIN klienten k ON k.id=t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.klient_id=t.klient_id AND a.status='aktiv' LEFT JOIN coaching_klientenstatus cs ON cs.klient_id=k.id WHERE k.benutzer_id=:coach AND COALESCE(cs.status,'aktiv')<>'abgeschlossen' AND t.beginn<NOW() AND t.status NOT IN ('durchgefuehrt','durchgeführt','stattgefunden','abgeschlossen','abgesagt') AND NOT EXISTS (SELECT 1 FROM coaching_sitzungsnotizen n WHERE n.termin_id=t.id AND n.klient_id=t.klient_id AND n.coach_benutzer_id=:note_coach) ORDER BY t.beginn ASC LIMIT 20");
             $overdueQuery->execute(['coach'=>(int)$currentUser['id'],'note_coach'=>(int)$currentUser['id']]);
             $overdueAppointments=$overdueQuery->fetchAll();
         }
@@ -207,7 +214,8 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
                         k.vorname, k.nachname
                  FROM coaching_aktivitaeten a
                  INNER JOIN klienten k ON k.id = a.klient_id AND k.benutzer_id = a.coach_benutzer_id
-                 WHERE a.coach_benutzer_id = :coach AND a.gelesen_am IS NULL
+                 LEFT JOIN coaching_klientenstatus cs ON cs.klient_id = k.id
+                 WHERE a.coach_benutzer_id = :coach AND COALESCE(cs.status, 'aktiv') <> 'abgeschlossen' AND a.gelesen_am IS NULL
                  ORDER BY a.erstellt_am DESC, a.id DESC
                  LIMIT 20'
             );
