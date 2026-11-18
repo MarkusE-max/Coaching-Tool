@@ -22,7 +22,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements', 'notes', 'invoices'], true);
-    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'format-categories'], true);
+    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'admins', 'format-categories'], true);
     require_once dirname(__DIR__) . '/app/theme.php';
     $themeDatabase = coachingDatabase();
     echo '<style>' . coachingThemeCss($themeDatabase, (int) $user['id']) . '</style>';
@@ -81,6 +81,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <?php if ($isAdmin): ?>
                         <a class="sidebar-link<?= $active === 'coaches' ? ' is-active' : '' ?>" href="coaches.php"<?= $active === 'coaches' ? ' aria-current="page"' : '' ?>>Coach-Konten</a>
                         <a class="sidebar-link<?= $active === 'managers' ? ' is-active' : '' ?>" href="managers.php"<?= $active === 'managers' ? ' aria-current="page"' : '' ?>>Verwalterkonten</a>
+                        <a class="sidebar-link<?= $active === 'admins' ? ' is-active' : '' ?>" href="admin-accounts.php"<?= $active === 'admins' ? ' aria-current="page"' : '' ?>>Admin-Konten</a>
                         <?php endif; ?>
                         <a class="sidebar-link<?= $active === 'format-categories' ? ' is-active' : '' ?>" href="format-categories.php"<?= $active === 'format-categories' ? ' aria-current="page"' : '' ?>>Wissenskategorien</a>
                         <?php endif; ?>
