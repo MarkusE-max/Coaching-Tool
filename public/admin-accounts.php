@@ -21,6 +21,14 @@ if (!is_array($currentUser) || ($currentUser['role'] ?? '') !== 'admin') {
 }
 
 $database = coachingDatabase();
+$activeAdmin = $database->prepare("SELECT id FROM benutzer WHERE id = :id AND rolle = 'admin' AND aktiv = 1 LIMIT 1");
+$activeAdmin->execute(['id' => (int) $currentUser['id']]);
+if (!$activeAdmin->fetchColumn()) {
+    unset($_SESSION['user']);
+    session_regenerate_id(true);
+    http_response_code(403);
+    exit('Dein Admin-Konto ist nicht mehr aktiv.');
+}
 $token = $_SESSION['csrf_token'] ?? '';
 if (!is_string($token) || strlen($token) !== 64) {
     $token = bin2hex(random_bytes(32));
