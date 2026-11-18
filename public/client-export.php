@@ -146,6 +146,19 @@ try {
         }
     }
 
+    $sensitiveFieldPattern = '/pass|password|token|secret|hash|speicher_schluessel|^ip_adresse$|ip_address/i';
+    foreach ($records as &$recordRows) {
+        if (!is_array($recordRows)) continue;
+        foreach ($recordRows as &$recordRow) {
+            if (!is_array($recordRow)) continue;
+            foreach (array_keys($recordRow) as $fieldName) {
+                if (preg_match($sensitiveFieldPattern, (string) $fieldName) === 1) unset($recordRow[$fieldName]);
+            }
+        }
+        unset($recordRow);
+    }
+    unset($recordRows);
+
     $records['_export'] = [
         'created_at' => date(DATE_ATOM),
         'client_id' => (int) $clientId,
