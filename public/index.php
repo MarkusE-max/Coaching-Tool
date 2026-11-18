@@ -210,14 +210,14 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
         $appointments = $appointmentQuery->fetchAll();
         if (($currentUser['role'] ?? '') === 'coach') {
             $activityQuery = $database->prepare(
-                'SELECT a.klient_id, a.ereignistyp, a.objekt_titel, a.status_vorher, a.status_nachher, a.erstellt_am,
+                "SELECT a.klient_id, a.ereignistyp, a.objekt_titel, a.status_vorher, a.status_nachher, a.erstellt_am,
                         k.vorname, k.nachname
                  FROM coaching_aktivitaeten a
                  INNER JOIN klienten k ON k.id = a.klient_id AND k.benutzer_id = a.coach_benutzer_id
                  LEFT JOIN coaching_klientenstatus cs ON cs.klient_id = k.id
                  WHERE a.coach_benutzer_id = :coach AND COALESCE(cs.status, 'aktiv') <> 'abgeschlossen' AND a.gelesen_am IS NULL
                  ORDER BY a.erstellt_am DESC, a.id DESC
-                 LIMIT 20'
+                 LIMIT 20"
             );
             $activityQuery->execute(['coach' => (int) $currentUser['id']]);
             $activities = $activityQuery->fetchAll();
