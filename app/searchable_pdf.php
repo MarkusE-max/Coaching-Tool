@@ -32,7 +32,7 @@ function coachingSearchablePdf(array $records, string $clientName): string
     $lines = [
         '# Coaching Tool - Klienten-Datenexport',
         '',
-        'Klient: ' . $clientName,
+        'Klient: ' . coachingPdfText($clientName),
         'Erstellt am: ' . date('d.m.Y H:i'),
         '',
         'Der Bericht enthält die Klienten- und Coaching-Datensätze als durchsuchbaren Text.',
