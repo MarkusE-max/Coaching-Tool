@@ -2,9 +2,14 @@
 
 ## Datenexport
 
-In der Klientenakte gibt es für den zuständigen Coach den Link **Datenexport**. Er lädt eine ZIP-Datei mit den Klientenstammdaten, direkt zugeordneten Coaching-Daten, Rechnungsdaten, privaten Coach-Sitzungsnotizen und zugehörigen Dateien herunter. Der Export enthält keine Zugangspasswort-Hashes, Reset-Tokens, Login-IP-Protokolle oder coachweiten Vorlagen/Einstellungen. Admins und andere Coaches können den Export nicht abrufen.
+In der Klientenakte gibt es für den zuständigen Coach zwei Exportmöglichkeiten:
 
-Die Anwendung verwendet die PHP-Erweiterung `zip`. Aktiviere sie im zugewiesenen PHP-8.2-Profil. Der Export ist für den persönlichen Download gedacht: Lege die ZIP-Datei nur in einem geschützten, verschlüsselten Ablageort ab und entferne lokale Kopien, sobald sie nicht mehr benötigt werden.
+- **Durchsuchbarer PDF-Bericht**: enthält die Klientenstammdaten und direkt zugeordneten Coaching-Datensätze einschließlich Rechnungen und privater Coach-Sitzungsnotizen als echten, durchsuchbaren Text. Der Download wird nach Klient benannt, zum Beispiel `Muster-Maria-datenexport-2026-11-18.pdf`. Originaldateien und Anhänge sind nicht in den PDF-Bericht eingebettet; sie bleiben im vollständigen ZIP-Export.
+- **Vollständiger Export (ZIP/JSON)**: enthält dieselben Datensätze als JSON sowie zugehörige Dateien.
+
+Beide Exporte enthalten keine Passwort-, Token-, Hash- oder Speicher-Schlüssel-Felder, keine Login-IP-Protokolle und keine coachweiten Vorlagen/Einstellungen. Admins und andere Coaches können sie nicht abrufen. Die PDF wird beim Download erzeugt und nicht zusätzlich auf dem NAS gespeichert. Lege beide Exportformate nur in einem geschützten, verschlüsselten Ablageort ab und entferne lokale Kopien, sobald sie nicht mehr benötigt werden.
+
+Nur der vollständige ZIP-Export benötigt die PHP-Erweiterung `zip`; aktiviere sie im zugewiesenen PHP-8.2-Profil.
 
 ## Aufbewahrung und Löschung
 
