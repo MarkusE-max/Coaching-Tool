@@ -29,8 +29,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    $active=$db->prepare("SELECT id FROM coaching_auftraege WHERE klient_id=:client AND coach_benutzer_id=:coach AND status='aktiv' LIMIT 1");
    $active->execute(['client'=>$clientId,'coach'=>$coach]);
    if($active->fetchColumn())throw new RuntimeException('Für diesen Klienten gibt es bereits einen aktiven Auftrag. Schließe ihn zuerst ab, bevor du einen neuen Auftrag anlegst.');
+   $db->beginTransaction();
    $insert=$db->prepare("INSERT INTO coaching_auftraege (klient_id,coach_benutzer_id,titel,beschreibung,status) VALUES (:client,:coach,:title,:description,'aktiv')");
    $insert->execute(['client'=>$clientId,'coach'=>$coach,'title'=>$title,'description'=>$description?:null]);
+   $restoreClientStatus=$db->prepare("INSERT INTO coaching_klientenstatus (klient_id,status,geaendert_von_benutzer_id) VALUES (:client,'aktiv',:coach) ON DUPLICATE KEY UPDATE status='aktiv',geaendert_von_benutzer_id=VALUES(geaendert_von_benutzer_id)");
+   $restoreClientStatus->execute(['client'=>$clientId,'coach'=>$coach]);
+   $db->commit();
    header('Location: engagements.php?saved=1&klient_id='.$clientId);exit;
   }
   $id=filter_var($_POST['id']??null,FILTER_VALIDATE_INT);
@@ -51,7 +55,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   }
   throw new RuntimeException('Unbekannte Aktion.');
  }catch(RuntimeException $exception){if($db->inTransaction())$db->rollBack();$error=$exception->getMessage();}
- catch(Throwable $exception){if($db->inTransaction())$db->rollBack();error_log('Coaching engagement save failed: '.$exception->getMessage());$error='Die Änderung konnte nicht gespeichert werden. Prüfe Migration 012 und die Tabellenrechte.';}
+ catch(Throwable $exception){if($db->inTransaction())$db->rollBack();error_log('Coaching engagement save failed: '.$exception->getMessage());$error='Die Änderung konnte nicht gespeichert werden. Prüfe Migration 004 und 012 sowie INSERT-/UPDATE-Rechte auf coaching_klientenstatus und INSERT-Rechte auf coaching_auftraege.';}
 }
 $listSql="SELECT a.*,k.vorname,k.nachname,COALESCE(cs.status,'aktiv') AS klientenstatus,(SELECT COUNT(*) FROM termine t LEFT JOIN coaching_rechnungen r ON r.termin_id=t.id WHERE t.auftrag_id=a.id AND t.klient_id=a.klient_id AND t.beginn<=NOW() AND t.status IN ('durchgefuehrt','durchgeführt','stattgefunden','abgeschlossen') AND r.id IS NULL) AS sitzungen_ohne_rechnung FROM coaching_auftraege a INNER JOIN klienten k ON k.id=a.klient_id LEFT JOIN coaching_klientenstatus cs ON cs.klient_id=k.id WHERE a.coach_benutzer_id=:coach AND k.benutzer_id=:owner".($selectedClientId>0?' AND k.id=:selected_client':'')." ORDER BY a.klient_id,a.erstellt_am DESC";
 $list=$db->prepare($listSql);$listParams=['coach'=>$coach,'owner'=>$coach];if($selectedClientId>0)$listParams['selected_client']=$selectedClientId;$list->execute($listParams);$orders=$list->fetchAll(PDO::FETCH_ASSOC);
