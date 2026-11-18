@@ -158,11 +158,15 @@ try {
 
     if ($exportFormat === 'pdf') {
         $clientName = trim((string) ($client['vorname'] ?? '') . ' ' . (string) ($client['nachname'] ?? ''));
-        $pdf = coachingSearchablePdf($records, $clientName);
+        try {
+            $pdf = coachingSearchablePdf($records, $clientName);
+        } catch (RuntimeException $exception) {
+            throw new ClientExportException($exception->getMessage(), 0, $exception);
+        }
         $name = exportSafeFilename(trim((string) ($client['nachname'] ?? 'klient')) . '-' . trim((string) ($client['vorname'] ?? '')) . '-datenexport-' . date('Y-m-d') . '.pdf');
         header('Content-Type: application/pdf');
         header('Content-Length: ' . (string) strlen($pdf));
-        header('Content-Disposition: attachment; filename="' . $name . '"; filename*=UTF-8\\'\\'' . rawurlencode($name));
+        header('Content-Disposition: attachment; filename="' . $name . '"');
         header('X-Content-Type-Options: nosniff');
         echo $pdf;
         exit;
