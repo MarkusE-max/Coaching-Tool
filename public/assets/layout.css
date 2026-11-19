@@ -1,3 +1,4 @@
+* { box-sizing: border-box; }
 :root {
     --nav-bg: #173a33;
     --nav-panel: #204a41;
