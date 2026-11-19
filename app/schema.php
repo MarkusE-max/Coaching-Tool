@@ -23,7 +23,7 @@ function coachingSchemaStatus(PDO $database): array
         ? $database->query('SHOW COLUMNS FROM coaching_email_einstellungen')->fetchAll(PDO::FETCH_COLUMN)
         : [];
     $missingEmailSettingsColumns = array_values(array_diff($requiredEmailSettingsColumns, $emailSettingsColumns));
-    $requiredPortalColumns = ['email', 'zeige_termine', 'zeige_ziele', 'zeige_aufgaben', 'aufgaben_bearbeiten', 'zeige_nachrichten', 'nachrichten_senden', 'zeige_dokumente', 'zeige_archiv', 'aufgaben_erinnerungen_aktiv', 'aufgaben_erinnerung_rhythmus', 'aufgaben_ruhe_von', 'aufgaben_ruhe_bis'];
+    $requiredPortalColumns = ['email', 'zeige_termine', 'zeige_ziele', 'zeige_aufgaben', 'aufgaben_bearbeiten', 'zeige_nachrichten', 'nachrichten_senden', 'zeige_dokumente', 'zeige_archiv', 'aufgaben_erinnerungen_aktiv', 'aufgaben_erinnerung_rhythmus', 'aufgaben_ruhe_von', 'aufgaben_ruhe_bis', 'mfa_aktiv', 'mfa_geheimnis_verschluesselt', 'mfa_ersatzcodes_hashes'];
     $portalColumns = in_array('coaching_portal_zugaenge', $existing, true)
         ? $database->query('SHOW COLUMNS FROM coaching_portal_zugaenge')->fetchAll(PDO::FETCH_COLUMN)
         : [];
