@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
     if (!is_string($postedToken) || !hash_equals(csrfToken(), $postedToken)) {
         $errorMessage = 'Die Anfrage ist abgelaufen. Bitte lade die Seite neu.';
     } elseif ($action === 'logout') {
-        unset($_SESSION['user']);
+        unset($_SESSION['user'], $_SESSION['mfa_verified'], $_SESSION['mfa_pending_user'], $_SESSION['mfa_setup_secret'], $_SESSION['mfa_setup_authorized']);
         session_regenerate_id(true);
         unset($_SESSION['csrf_token']);
         header('Location: ./');
