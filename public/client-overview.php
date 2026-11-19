@@ -7,7 +7,7 @@ require_once dirname(__DIR__).'/app/bootstrap.php';require_once dirname(__DIR__)
 function overviewH(string|int|null $v): string { return htmlspecialchars((string)$v, ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'); }
 function overviewEnumOptions(string $type,array $fallback): array { if(preg_match('/^enum\\((.*)\\)$/i',trim($type),$m)!==1)return $fallback;preg_match_all("/'([^']*)'/",$m[1],$matches);return $matches[1]!==[]?array_map('stripcslashes',$matches[1]):$fallback; }
 $user=$_SESSION['user']??null;
-if(!is_array($user)||!isset($user['id'],$user['role'])||!in_array($user['role'],['admin','coach'],true)){header('Location: ./');exit;}
+if(!is_array($user)||!isset($user['id'],$user['role'])||$user['role']!=='coach'){header('Location: ./');exit;}
 $db=coachingDatabase(); $admin=$user['role']==='admin'; $id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT)?:0;
 $clientBillingFields=['adresse_strasse','adresse_plz','adresse_ort','adresse_land','rechnungsadresse_abweichend','rechnung_empfaenger','rechnung_strasse','rechnung_plz','rechnung_ort','rechnung_land','rechnung_email','kundennummer','stundensatz','preisvereinbarung','zahlungsziel_tage'];
 $clientColumns=$db->query('SHOW COLUMNS FROM klienten')->fetchAll(PDO::FETCH_COLUMN);
