@@ -20,7 +20,7 @@ if (!is_array($user) || !isset($user['id'], $user['role'], $user['name'])) {
     header('Location: ./');
     exit;
 }
-if (!in_array($user['role'], ['coach', 'admin', 'verwalter'], true)) {
+if (!in_array($user['role'], ['coach', 'verwalter'], true)) {
     http_response_code(403);
     exit('Kein Zugriff auf die Klientenverwaltung.');
 }
@@ -61,7 +61,7 @@ if (!is_string($token) || strlen($token) !== 64) {
 }
 $isAdmin = $user['role'] === 'admin';
 $isManager = $user['role'] === 'verwalter';
-$canSeeAllClients = $isAdmin || $isManager;
+$canSeeAllClients = $isManager;
 $message = '';
 $error = $schemaWarning;
 $values = ['id' => 0, 'vorname' => '', 'nachname' => '', 'email' => '', 'telefon' => '', 'benutzer_id' => $isManager ? 0 : (int) $user['id'], 'adresse_strasse' => '', 'adresse_plz' => '', 'adresse_ort' => '', 'adresse_land' => '', 'rechnungsadresse_abweichend' => 0, 'rechnung_empfaenger' => '', 'rechnung_strasse' => '', 'rechnung_plz' => '', 'rechnung_ort' => '', 'rechnung_land' => '', 'rechnung_email' => '', 'kundennummer' => '', 'stundensatz' => '', 'preisvereinbarung' => '', 'zahlungsziel_tage' => ''];
@@ -111,14 +111,14 @@ if ($billingSchemaReady) {
             throw new InvalidArgumentException('Bitte einen zuständigen Coach auswählen.');
         }
         if ($isManager) {
-            $checkOwner = $database->prepare("SELECT id FROM benutzer WHERE id = :id AND aktiv = 1 AND rolle = 'coach' LIMIT 1");
-            $checkOwner->execute(['id' => (int) $ownerInput]);
-            if (!$checkOwner->fetchColumn()) throw new InvalidArgumentException('Der ausgewählte Coach ist nicht aktiv.');
+            $checkOwner = $database->prepare("SELECT b.id FROM benutzer b INNER JOIN coaching_verwalter_coaches vc ON vc.coach_benutzer_id=b.id AND vc.verwalter_benutzer_id=:manager WHERE b.id=:id AND b.aktiv=1 AND b.rolle='coach' LIMIT 1");
+            $checkOwner->execute(['id' => (int) $ownerInput, 'manager' => (int) $user['id']]);
+            if (!$checkOwner->fetchColumn()) throw new InvalidArgumentException('Der Coach ist nicht aktiv oder diesem Verwalter nicht zugewiesen.');
         }
         if ($id > 0) {
-            $check = $database->prepare('SELECT id, benutzer_id FROM klienten WHERE id = :id' . ($user['role'] === 'coach' ? ' AND benutzer_id = :owner' : ''));
+            $check = $database->prepare('SELECT id, benutzer_id FROM klienten WHERE id = :id' . ($user['role'] === 'coach' ? ' AND benutzer_id = :owner' : ' AND benutzer_id IN (SELECT coach_benutzer_id FROM coaching_verwalter_coaches WHERE verwalter_benutzer_id = :manager)'));
             $params = ['id' => $id];
-            if ($user['role'] === 'coach') $params['owner'] = (int) $user['id'];
+            if ($user['role'] === 'coach') $params['owner'] = (int) $user['id']; else $params['manager'] = (int) $user['id'];
             $check->execute($params);
             $existingClient = $check->fetch(PDO::FETCH_ASSOC);
             if (!$existingClient) throw new InvalidArgumentException('Dieser Klient wurde nicht gefunden oder gehört nicht zu deinem Zugang.');
@@ -166,9 +166,9 @@ if ($billingSchemaReady) {
     } elseif (isset($_GET['edit'])) {
         $id = filter_var($_GET['edit'], FILTER_VALIDATE_INT);
         if ($id === false || (int) $id < 1) throw new InvalidArgumentException('Ungültige Klienten-ID.');
-        $query = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ', ' . str_replace('k.', '', $billingSelect) . ', benutzer_id FROM klienten WHERE id = :id' . ($user['role'] === 'coach' ? ' AND benutzer_id = :owner' : ''));
+        $query = $database->prepare('SELECT id, vorname, nachname, ' . str_replace('k.', '', $emailSelect) . ', ' . str_replace('k.', '', $phoneSelect) . ', ' . str_replace('k.', '', $billingSelect) . ', benutzer_id FROM klienten WHERE id = :id' . ($user['role'] === 'coach' ? ' AND benutzer_id = :owner' : ' AND benutzer_id IN (SELECT coach_benutzer_id FROM coaching_verwalter_coaches WHERE verwalter_benutzer_id = :manager)'));
         $params = ['id' => (int) $id];
-        if ($user['role'] === 'coach') $params['owner'] = (int) $user['id'];
+        if ($user['role'] === 'coach') $params['owner'] = (int) $user['id']; else $params['manager'] = (int) $user['id'];
         $query->execute($params);
         $record = $query->fetch(PDO::FETCH_ASSOC);
         if (!$record) throw new InvalidArgumentException('Dieser Klient wurde nicht gefunden oder gehört nicht zu deinem Zugang.');
@@ -183,15 +183,17 @@ if ($billingSchemaReady) {
 
 try {
     $ownerQuery = $isManager
-        ? $database->query("SELECT id, vorname, nachname, coach_kennung FROM benutzer WHERE aktiv = 1 AND rolle = 'coach' ORDER BY nachname, vorname")
+        ? $database->prepare("SELECT b.id,b.vorname,b.nachname,b.coach_kennung FROM benutzer b INNER JOIN coaching_verwalter_coaches vc ON vc.coach_benutzer_id=b.id WHERE vc.verwalter_benutzer_id=:manager AND b.aktiv=1 AND b.rolle='coach' ORDER BY b.nachname,b.vorname")
         : null;
+    if ($ownerQuery) $ownerQuery->execute(['manager'=>(int)$user['id']]);
     $owners = $ownerQuery ? $ownerQuery->fetchAll(PDO::FETCH_ASSOC) : [];
-    if ($isManager && $owners === []) $error = 'Es gibt kein aktives Coach-Konto. Lege zuerst eines über Coach-Konten verwalten an.';
+    if ($isManager && $owners === []) $error = 'Diesem Verwalter sind noch keine aktiven Coaches zugewiesen. Bitte wende dich an einen Administrator.';
     $clientSearch = trim(is_string($_GET['suche'] ?? null) ? $_GET['suche'] : '');
     $clientStatusFilter = is_string($_GET['status'] ?? null) && in_array($_GET['status'], ['aktiv','pausiert','abgeschlossen'], true) ? $_GET['status'] : '';
     $where = [];
     $params = [];
-    if (!$canSeeAllClients) { $where[] = 'k.benutzer_id = :owner'; $params['owner'] = (int) $user['id']; }
+    if ($isManager) { $where[] = 'k.benutzer_id IN (SELECT coach_benutzer_id FROM coaching_verwalter_coaches WHERE verwalter_benutzer_id = :manager)'; $params['manager'] = (int) $user['id']; }
+    else { $where[] = 'k.benutzer_id = :owner'; $params['owner'] = (int) $user['id']; }
     if ($clientStatusFilter !== '') { $where[] = "COALESCE(cs.status, 'aktiv') = :status"; $params['status'] = $clientStatusFilter; }
     if ($clientSearch !== '') {
         $searchFields = ['k.vorname', 'k.nachname'];
