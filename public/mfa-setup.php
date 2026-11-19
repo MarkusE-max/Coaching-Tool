@@ -81,7 +81,7 @@ $uri = coachingMfaOtpAuthUri($secret, (string)($identity['name'] ?? 'Benutzer'))
 <?php if(is_array($recoveryCodes)):?>
 <p>Speichere diese Wiederherstellungscodes sicher. Jeder Code ist nur einmal nutzbar und wird nach dem Schließen nicht erneut angezeigt.</p><div class="codes"><?php foreach($recoveryCodes as $code):?><span><?=mfaSetupH($code)?></span><?php endforeach;?></div><a class="button" href="./">Zur Coaching-Anwendung</a>
 <?php else:?>
-<p>Verwende eine Authenticator-App wie Google Authenticator, Microsoft Authenticator, Authy oder 1Password und scanne den QR-Code. Danach ist die zweite Abfrage bei jedem Login erforderlich.</p>
+<p>Verwende eine Authenticator-App wie Google Authenticator, Microsoft Authenticator, Authy oder 1Password und scanne den QR-Code. Wenn du sie einschaltest, wird die zweite Abfrage bei jedem Login aktiv.</p>
 <div id="qr" aria-label="QR-Code für die Authenticator-App"></div>
 <p>Falls Scannen nicht möglich ist, gib diesen Schlüssel manuell ein:</p><div class="secret"><?=mfaSetupH($secret)?></div>
 <form method="post" autocomplete="off"><input type="hidden" name="csrf_token" value="<?=mfaSetupH($csrf)?>"><label for="code">Sechsstelliger App-Code</label><input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,8}" maxlength="8" required><br><button class="button" type="submit">Einrichtung bestätigen</button></form>
