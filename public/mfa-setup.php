@@ -18,8 +18,8 @@ function mfaSetupCsrf(): string {
 
 $pending = $_SESSION['mfa_pending_user'] ?? null;
 $activeUser = $_SESSION['user'] ?? null;
-$isFirstSetup = is_array($pending) && isset($pending['id'], $pending['role']) && $pending['role'] !== 'client';
-$isAuthenticatedSetup = is_array($activeUser) && isset($activeUser['id'], $activeUser['role']) && $activeUser['role'] !== 'client';
+$isFirstSetup = is_array($pending) && isset($pending['id'], $pending['role']) && ($pending['role'] !== 'client' || isset($pending['client_id']));
+$isAuthenticatedSetup = is_array($activeUser) && isset($activeUser['id'], $activeUser['role']) && ($activeUser['role'] !== 'client' || isset($activeUser['client_id']));
 if (!$isFirstSetup && !$isAuthenticatedSetup) { header('Location: ./'); exit; }
 if ($isAuthenticatedSetup && empty($_SESSION['mfa_setup_authorized'])) { header('Location: security-settings.php'); exit; }
 $identity = $isFirstSetup ? $pending : $activeUser;
@@ -38,17 +38,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif (!coachingMfaVerifyTotp($secret, $code)) $error = 'Der Code ist ungültig. Prüfe die Uhrzeit deines Geräts und versuche es erneut.';
     else {
         try {
-            $saved = $db->prepare('UPDATE benutzer SET mfa_aktiv=1,mfa_geheimnis_verschluesselt=:secret,mfa_ersatzcodes_hashes=:recovery WHERE id=:id AND rolle=:role AND aktiv=1');
             $recovery = coachingMfaCreateRecoveryCodes();
-            $saved->execute(['secret'=>coachingMfaEncrypt($secret),'recovery'=>json_encode($recovery['hashes'], JSON_THROW_ON_ERROR),'id'=>(int)$identity['id'],'role'=>(string)$identity['role']]);
+            $secretEncrypted = coachingMfaEncrypt($secret);
+            $recoveryJson = json_encode($recovery['hashes'], JSON_THROW_ON_ERROR);
+            if (($identity['role'] ?? '') === 'client') {
+                $saved = $db->prepare('UPDATE coaching_portal_zugaenge SET mfa_aktiv=1,mfa_geheimnis_verschluesselt=:secret,mfa_ersatzcodes_hashes=:recovery WHERE id=:id AND klient_id=:client AND aktiv=1');
+                $saved->execute(['secret'=>$secretEncrypted,'recovery'=>$recoveryJson,'id'=>(int)$identity['id'],'client'=>(int)$identity['client_id']]);
+            } else {
+                $saved = $db->prepare('UPDATE benutzer SET mfa_aktiv=1,mfa_geheimnis_verschluesselt=:secret,mfa_ersatzcodes_hashes=:recovery WHERE id=:id AND rolle=:role AND aktiv=1');
+                $saved->execute(['secret'=>$secretEncrypted,'recovery'=>$recoveryJson,'id'=>(int)$identity['id'],'role'=>(string)$identity['role']]);
+            }
             if ($saved->rowCount() !== 1) throw new RuntimeException('Das Benutzerkonto konnte nicht aktualisiert werden.');
             $_SESSION['mfa_recovery_codes_once'] = $recovery['codes'];
             unset($_SESSION['mfa_setup_secret'], $_SESSION['mfa_setup_authorized']);
             if ($isFirstSetup) {
-                $login = $db->prepare('UPDATE benutzer SET letzter_login=NOW() WHERE id=:id');
-                $login->execute(['id'=>(int)$identity['id']]);
+                if (($identity['role'] ?? '') === 'client') {
+                    $login = $db->prepare('UPDATE coaching_portal_zugaenge SET letzter_login=NOW() WHERE id=:id AND klient_id=:client');
+                    $login->execute(['id'=>(int)$identity['id'],'client'=>(int)$identity['client_id']]);
+                } else {
+                    $login = $db->prepare('UPDATE benutzer SET letzter_login=NOW() WHERE id=:id');
+                    $login->execute(['id'=>(int)$identity['id']]);
+                }
                 session_regenerate_id(true);
                 $_SESSION['user'] = ['id'=>(int)$identity['id'],'name'=>(string)$identity['name'],'role'=>(string)$identity['role']];
+                if (($identity['role'] ?? '') === 'client') $_SESSION['user']['client_id'] = (int)$identity['client_id'];
                 unset($_SESSION['mfa_pending_user']);
             }
             $recoveryCodes = $recovery['codes'];
