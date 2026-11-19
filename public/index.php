@@ -189,19 +189,7 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
                  ORDER BY k.nachname, k.vorname LIMIT 100"
             );
             $clientQuery->execute(['manager_id' => (int)$currentUser['id']]);
-            if (false) {
-                $appointmentQuery = $database->query(
-                    "SELECT t.beginn, t.dauer_minuten, t.format, k.id AS klient_id, k.vorname, k.nachname
-                     FROM termine t
-                     INNER JOIN klienten k ON k.id = t.klient_id
-                     LEFT JOIN coaching_klientenstatus cs ON cs.klient_id = k.id
-                     WHERE COALESCE(cs.status, 'aktiv') <> 'abgeschlossen'
-                       AND t.status = 'geplant' AND t.beginn >= NOW()
-                     ORDER BY t.beginn LIMIT 10"
-                );
-            } else {
-                $appointmentQuery = $database->query('SELECT beginn, dauer_minuten, format, \'\' AS vorname, \'\' AS nachname FROM termine WHERE 1 = 0');
-            }
+            $appointmentQuery = $database->query('SELECT beginn, dauer_minuten, format, \'\' AS vorname, \'\' AS nachname FROM termine WHERE 1 = 0');
         } else {
             $clientQuery = $database->prepare(
                 "SELECT k.id, k.vorname, k.nachname, COALESCE(cs.status, 'aktiv') AS status, k.startdatum
@@ -338,7 +326,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                         <div class="card-heading"><h2>Systemverwaltung</h2></div>
                         <p>Verwalte Benutzerkonten und Räume. Klientenakten, Sitzungen, Nachrichten, Dokumente und Rechnungen werden in diesem Konto nicht angezeigt.</p>
                         <p><a href="coaches.php">Coach-Konten</a> · <a href="managers.php">Verwalterkonten und Coach-Zuordnungen</a> · <a href="admin-accounts.php">Admin-Konten</a></p>
-                        <p><a href="room-settings.php">Räume und Buchungsrechte</a> · <a href="room-calendar.php">Raumkalender</a> · <a href="format-categories.php">Wissenskategorien</a></p>
+                        <p><a href="room-settings.php">Räume und Buchungsrechte</a> · <a href="room-calendar.php">Raumkalender</a> · <a href="format-categories.php">Wissenskategorien</a> · <a href="mfa-reset.php">Zwei-Faktor-Zugänge</a></p>
                     </section>
                 </div>
                 <?php else: ?>
