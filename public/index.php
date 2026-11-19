@@ -16,6 +16,7 @@ session_start();
 
 require_once dirname(__DIR__) . '/app/bootstrap.php';
 require_once dirname(__DIR__) . '/app/schema.php';
+require_once dirname(__DIR__) . '/app/totp.php';
 
 function h(string|int|null $value): string
 {
@@ -82,7 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
                 $errorMessage = 'Benutzername oder Passwort ist nicht korrekt.';
             } else {
                 $query = $database->prepare(
-                    'SELECT id, benutzername, passwort_hash, vorname, nachname, rolle, aktiv
+                    'SELECT id, benutzername, passwort_hash, vorname, nachname, rolle, aktiv,
+                           mfa_aktiv, mfa_geheimnis_verschluesselt, mfa_ersatzcodes_hashes
                      FROM benutzer WHERE benutzername = :username LIMIT 1'
                 );
                 $query->execute(['username' => $username]);
@@ -116,23 +118,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
                 if (!$validPassword || (int) $user['aktiv'] !== 1) {
                     $errorMessage = 'Benutzername oder Passwort ist nicht korrekt.';
                 } else {
-                    if (($user['rolle'] ?? '') === 'client') {
-                        $updateLogin = $database->prepare('UPDATE coaching_portal_zugaenge SET letzter_login = NOW() WHERE id = :id');
-                        $updateLogin->execute(['id' => (int) $user['id']]);
-                    } else {
-                        $updateLogin = $database->prepare('UPDATE benutzer SET letzter_login = NOW() WHERE id = :id');
-                        $updateLogin->execute(['id' => (int) $user['id']]);
+                    session_regenerate_id(true);
+                    if (($user['rolle'] ?? '') !== 'client') {
+                        $_SESSION['mfa_pending_user'] = [
+                            'id' => (int) $user['id'],
+                            'name' => trim($user['vorname'] . ' ' . $user['nachname']),
+                            'role' => (string) $user['rolle'],
+                        ];
+                        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                        $target = (int) ($user['mfa_aktiv'] ?? 0) === 1 ? 'mfa-challenge.php' : 'mfa-setup.php';
+                        header('Location: ' . $target);
+                        exit;
                     }
 
-                    session_regenerate_id(true);
+                    $updateLogin = $database->prepare('UPDATE coaching_portal_zugaenge SET letzter_login = NOW() WHERE id = :id');
+                    $updateLogin->execute(['id' => (int) $user['id']]);
                     $_SESSION['user'] = [
                         'id' => (int) $user['id'],
                         'name' => trim($user['vorname'] . ' ' . $user['nachname']),
-                        'role' => $user['rolle'],
+                        'role' => 'client',
+                        'client_id' => (int) $user['klient_id'],
                     ];
-                    if (($user['rolle'] ?? '') === 'client') {
-                        $_SESSION['user']['client_id'] = (int) $user['klient_id'];
-                    }
                     unset($_SESSION['csrf_token']);
                     header('Location: ./');
                     exit;
