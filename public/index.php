@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
                 if (!is_array($user)) {
                     $portalQuery = $database->prepare(
                         "SELECT p.id, p.klient_id, p.benutzername, p.passwort_hash, k.vorname, k.nachname,
-                                'client' AS rolle, p.aktiv
+                                'client' AS rolle, p.aktiv, p.mfa_aktiv, p.mfa_geheimnis_verschluesselt, p.mfa_ersatzcodes_hashes
                          FROM coaching_portal_zugaenge p
                          INNER JOIN klienten k ON k.id = p.klient_id
                          WHERE p.benutzername = :username LIMIT 1"
@@ -131,6 +131,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
                         exit;
                     }
 
+                    if ((int)($user['mfa_aktiv'] ?? 0) === 1) {
+                        $_SESSION['mfa_pending_user'] = [
+                            'id' => (int) $user['id'],
+                            'client_id' => (int) $user['klient_id'],
+                            'name' => trim($user['vorname'] . ' ' . $user['nachname']),
+                            'role' => 'client',
+                        ];
+                        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                        header('Location: mfa-challenge.php');
+                        exit;
+                    }
                     $updateLogin = $database->prepare('UPDATE coaching_portal_zugaenge SET letzter_login = NOW() WHERE id = :id');
                     $updateLogin->execute(['id' => (int) $user['id']]);
                     $_SESSION['user'] = [
