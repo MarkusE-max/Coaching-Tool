@@ -22,7 +22,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements', 'notes', 'invoices'], true);
-    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'admins', 'format-categories', 'security-settings', 'room-calendar', 'room-settings'], true);
+    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'admins', 'format-categories', 'security-settings', 'room-calendar', 'room-settings', 'mfa-reset'], true);
     require_once dirname(__DIR__) . '/app/theme.php';
     $themeDatabase = coachingDatabase();
     echo '<style>' . coachingThemeCss($themeDatabase, (int) $user['id']) . '</style>';
@@ -75,6 +75,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <?php endif; ?>
                         <?php if ($isAdmin): ?>
                         <a class="sidebar-link<?= $active === 'room-settings' ? ' is-active' : '' ?>" href="room-settings.php"<?= $active === 'room-settings' ? ' aria-current="page"' : '' ?>>Räume verwalten</a>
+                        <a class="sidebar-link<?= $active === 'mfa-reset' ? ' is-active' : '' ?>" href="mfa-reset.php"<?= $active === 'mfa-reset' ? ' aria-current="page"' : '' ?>>Zwei-Faktor-Zugänge</a>
                         <?php endif; ?>
                         <?php if ($role === 'coach'): ?>
                         <a class="sidebar-link<?= $active === 'invoice-settings' ? ' is-active' : '' ?>" href="invoice-settings.php"<?= $active === 'invoice-settings' ? ' aria-current="page"' : '' ?>>Rechnungseinstellungen</a>
