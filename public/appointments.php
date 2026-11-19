@@ -25,7 +25,7 @@ function appointmentEnumOptions(string $type, array $fallback): array
 }
 
 $user = $_SESSION['user'] ?? null;
-if (!is_array($user) || !isset($user['id'], $user['role']) || !in_array($user['role'], ['admin', 'coach'], true)) {
+if (!is_array($user) || !isset($user['id'], $user['role']) || $user['role'] !== 'coach') {
     header('Location: ./');
     exit;
 }
