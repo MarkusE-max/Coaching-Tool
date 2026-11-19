@@ -30,7 +30,8 @@ if (!is_string($secret) || $secret === '') {
     $_SESSION['mfa_setup_secret'] = $secret;
 }
 $error = '';
-$recoveryCodes = $_SESSION['mfa_recovery_codes_once'] ?? null;
+$recoveryCodes = null;
+unset($_SESSION['mfa_recovery_codes_once']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
     $code = trim(is_string($_POST['code'] ?? null) ? $_POST['code'] : '');
@@ -49,7 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $saved->execute(['secret'=>$secretEncrypted,'recovery'=>$recoveryJson,'id'=>(int)$identity['id'],'role'=>(string)$identity['role']]);
             }
             if ($saved->rowCount() !== 1) throw new RuntimeException('Das Benutzerkonto konnte nicht aktualisiert werden.');
-            $_SESSION['mfa_recovery_codes_once'] = $recovery['codes'];
             unset($_SESSION['mfa_setup_secret'], $_SESSION['mfa_setup_authorized']);
             if ($isFirstSetup) {
                 if (($identity['role'] ?? '') === 'client') {
@@ -64,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (($identity['role'] ?? '') === 'client') $_SESSION['user']['client_id'] = (int)$identity['client_id'];
                 unset($_SESSION['mfa_pending_user']);
             }
+            $_SESSION['mfa_verified'] = true;
             $recoveryCodes = $recovery['codes'];
         } catch (Throwable $e) {
             error_log('Coaching Tool MFA setup failed: '.$e->getMessage());
