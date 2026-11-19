@@ -8,6 +8,11 @@ ALTER TABLE benutzer
 
 -- Ein Verwalter kann mehrere Coaches betreuen und ein Coach mehrere Verwalter haben.
 -- Aus Datenschutzgründen startet die Zuordnung leer; der Administrator weist sie zu.
+ALTER TABLE coaching_portal_zugaenge
+  ADD COLUMN IF NOT EXISTS mfa_aktiv TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS mfa_geheimnis_verschluesselt TEXT NULL,
+  ADD COLUMN IF NOT EXISTS mfa_ersatzcodes_hashes TEXT NULL;
+
 CREATE TABLE IF NOT EXISTS coaching_verwalter_coaches (
   verwalter_benutzer_id BIGINT UNSIGNED NOT NULL,
   coach_benutzer_id BIGINT UNSIGNED NOT NULL,
