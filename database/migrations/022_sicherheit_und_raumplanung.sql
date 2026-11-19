@@ -57,5 +57,20 @@ CREATE TABLE IF NOT EXISTS coaching_raum_buchungen (
   KEY idx_raum_buchung_coach (coach_benutzer_id, beginn)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Datenbankkonto benötigt SELECT/INSERT/UPDATE auf benutzer und den vier neuen Tabellen.
+-- Sicherheitsprotokoll für Admin-Änderungen an Konten, Coach-Zuordnungen und Räumen.
+CREATE TABLE IF NOT EXISTS coaching_admin_aktionen (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  admin_benutzer_id BIGINT UNSIGNED NOT NULL,
+  aktion VARCHAR(80) NOT NULL,
+  ziel_typ VARCHAR(40) NOT NULL,
+  ziel_id BIGINT UNSIGNED NULL,
+  details VARCHAR(500) NULL,
+  erstellt_am DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_admin_aktionen_admin (admin_benutzer_id, erstellt_am),
+  KEY idx_admin_aktionen_ziel (ziel_typ, ziel_id, erstellt_am)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Datenbankkonto benötigt SELECT/INSERT/UPDATE auf benutzer und den neuen Tabellen
+-- sowie DELETE für die Coach- und Raum-Berechtigungszuordnungen.
 -- Für Raumverwaltung/Buchung: zusätzlich DELETE auf coaching_raum_berechtigungen.
