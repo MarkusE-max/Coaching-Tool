@@ -169,14 +169,16 @@ $activities = [];
 $dashboardError = '';
 if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
     try {
-        if (in_array($currentUser['role'], ['admin', 'verwalter'], true)) {
-            $clientQuery = $database->query(
+        if ($currentUser['role'] === 'verwalter') {
+            $clientQuery = $database->prepare(
                 "SELECT k.id, k.vorname, k.nachname, COALESCE(cs.status, 'aktiv') AS status, k.startdatum
                  FROM klienten k LEFT JOIN coaching_klientenstatus cs ON cs.klient_id = k.id
                  WHERE COALESCE(cs.status, 'aktiv') <> 'abgeschlossen'
+                   AND k.benutzer_id IN (SELECT coach_benutzer_id FROM coaching_verwalter_coaches WHERE verwalter_benutzer_id = :manager_id)
                  ORDER BY k.nachname, k.vorname LIMIT 100"
             );
-            if ($currentUser['role'] === 'admin') {
+            $clientQuery->execute(['manager_id' => (int)$currentUser['id']]);
+            if (false) {
                 $appointmentQuery = $database->query(
                     "SELECT t.beginn, t.dauer_minuten, t.format, k.id AS klient_id, k.vorname, k.nachname
                      FROM termine t
@@ -212,8 +214,10 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
             $overdueQuery->execute(['coach'=>(int)$currentUser['id'],'note_coach'=>(int)$currentUser['id']]);
             $overdueAppointments=$overdueQuery->fetchAll();
         }
-        $clients = $clientQuery->fetchAll();
-        $appointments = $appointmentQuery->fetchAll();
+        if (($currentUser['role'] ?? '') !== 'admin') {
+            $clients = $clientQuery->fetchAll();
+            $appointments = $appointmentQuery->fetchAll();
+        }
         if (($currentUser['role'] ?? '') === 'coach') {
             $activityQuery = $database->prepare(
                 "SELECT a.klient_id, a.ereignistyp, a.objekt_titel, a.status_vorher, a.status_nachher, a.erstellt_am,
@@ -301,9 +305,9 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
             <section class="dashboard">
                 <div class="dashboard-heading">
                     <div>
-                        <p class="eyebrow"><?= $currentUser['role'] === 'verwalter' ? 'VERWALTERBEREICH' : 'COACH-ÜBERSICHT' ?></p>
+                        <p class="eyebrow"><?= $currentUser['role'] === 'admin' ? 'SYSTEMVERWALTUNG' : ($currentUser['role'] === 'verwalter' ? 'VERWALTERBEREICH' : 'COACH-ÜBERSICHT') ?></p>
                         <h1>Guten Tag, <?= h($currentUser['name']) ?>.</h1>
-                        <p class="intro"><?= $currentUser['role'] === 'verwalter' ? 'Hier kannst du die Klientenzuordnung verwalten.' : 'Hier siehst du Klienten und anstehende Termine aus deinem Zugang.' ?></p>
+                        <p class="intro"><?= $currentUser['role'] === 'admin' ? 'Verwalte Konten und Räume. Klientendaten sind für Administratorkonten gesperrt.' : ($currentUser['role'] === 'verwalter' ? 'Hier kannst du die Klientenzuordnung für deine Coaches verwalten.' : 'Hier siehst du Klienten und anstehende Termine aus deinem Zugang.') ?></p>
                     </div>
                     <form method="post">
                         <input type="hidden" name="action" value="logout">
@@ -317,6 +321,16 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                 <?php endif; ?>
 
                 
+                <?php if ($currentUser['role'] === 'admin'): ?>
+                <div class="dashboard-grid">
+                    <section class="data-card">
+                        <div class="card-heading"><h2>Systemverwaltung</h2></div>
+                        <p>Verwalte Benutzerkonten und Räume. Klientenakten, Sitzungen, Nachrichten, Dokumente und Rechnungen werden in diesem Konto nicht angezeigt.</p>
+                        <p><a href="coaches.php">Coach-Konten</a> · <a href="managers.php">Verwalterkonten und Coach-Zuordnungen</a> · <a href="admin-accounts.php">Admin-Konten</a></p>
+                        <p><a href="room-settings.php">Räume und Buchungsrechte</a> · <a href="room-calendar.php">Raumkalender</a> · <a href="format-categories.php">Wissenskategorien</a></p>
+                    </section>
+                </div>
+                <?php else: ?>
                 <div class="dashboard-grid">
                     <section class="data-card">
                         <div class="card-heading"><h2><?= $currentUser['role'] === 'verwalter' ? 'Klienten zur Zuordnung' : 'Meine Klienten' ?></h2><span><?= count($clients) ?></span></div>
@@ -392,6 +406,8 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                     </section><?php endif; ?>
                 </div>
                 <p class="privacy-note">Notizen und Coaching-Inhalte werden in dieser Übersicht nicht angezeigt.</p>
+
+                <?php endif; ?>
             </section>
         <?php endif; ?>
 
