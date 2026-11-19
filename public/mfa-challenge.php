@@ -5,7 +5,7 @@ ini_set('session.use_strict_mode','1');session_name('coaching_tool_session');ses
 require_once dirname(__DIR__).'/app/bootstrap.php';require_once dirname(__DIR__).'/app/totp.php';
 function mfaChallengeH(string|int|null $v):string{return htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 $pending=$_SESSION['mfa_pending_user']??null;
-if(!is_array($pending)||!isset($pending['id'],$pending['role'])||$pending['role']==='client'){header('Location: ./');exit;}
+if(!is_array($pending)||!isset($pending['id'],$pending['role'])||($pending['role']==='client'&&!isset($pending['client_id']))){header('Location: ./');exit;}
 if(!isset($_SESSION['csrf_token'])||!is_string($_SESSION['csrf_token'])||strlen($_SESSION['csrf_token'])!==64)$_SESSION['csrf_token']=bin2hex(random_bytes(32));
 $token=$_SESSION['csrf_token'];$error='';$db=coachingDatabase();$ip=substr((string)($_SERVER['REMOTE_ADDR']??'unknown'),0,45);
 if($_SERVER['REQUEST_METHOD']==='POST'){
@@ -16,7 +16,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    $limit=$db->prepare('SELECT COUNT(*) FROM login_versuche WHERE ip_adresse=:ip AND erfolgreich=0 AND zeitpunkt >= (NOW() - INTERVAL 15 MINUTE)');$limit->execute(['ip'=>$ip]);
    if((int)$limit->fetchColumn()>=5)$error='Zu viele Versuche. Bitte warte 15 Minuten und melde dich erneut an.';
    else{
-    $q=$db->prepare('SELECT id,benutzername,vorname,nachname,rolle,aktiv,mfa_aktiv,mfa_geheimnis_verschluesselt,mfa_ersatzcodes_hashes FROM benutzer WHERE id=:id AND rolle=:role LIMIT 1');$q->execute(['id'=>(int)$pending['id'],'role'=>(string)$pending['role']]);$account=$q->fetch(PDO::FETCH_ASSOC);
+    if (($pending['role'] ?? '') === 'client') {
+     $q=$db->prepare('SELECT p.id,p.klient_id,p.benutzername,k.vorname,k.nachname,p.aktiv,p.mfa_aktiv,p.mfa_geheimnis_verschluesselt,p.mfa_ersatzcodes_hashes FROM coaching_portal_zugaenge p INNER JOIN klienten k ON k.id=p.klient_id WHERE p.id=:id AND p.klient_id=:client LIMIT 1');
+     $q->execute(['id'=>(int)$pending['id'],'client'=>(int)$pending['client_id']]);$account=$q->fetch(PDO::FETCH_ASSOC);$accountRole='client';
+    } else {
+     $q=$db->prepare('SELECT id,benutzername,vorname,nachname,rolle,aktiv,mfa_aktiv,mfa_geheimnis_verschluesselt,mfa_ersatzcodes_hashes FROM benutzer WHERE id=:id AND rolle=:role LIMIT 1');
+     $q->execute(['id'=>(int)$pending['id'],'role'=>(string)$pending['role']]);$account=$q->fetch(PDO::FETCH_ASSOC);$accountRole=(string)$pending['role'];
+    }
     if(!$account||(int)$account['aktiv']!==1||(int)$account['mfa_aktiv']!==1)throw new RuntimeException('The account is not ready for second-factor verification.');
     $secret=coachingMfaDecrypt((string)$account['mfa_geheimnis_verschluesselt']);
     $valid=coachingMfaVerifyTotp($secret,$code);
@@ -26,10 +32,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
      $log=$db->prepare('INSERT INTO login_versuche (benutzername,ip_adresse,erfolgreich) VALUES (:username,:ip,0)');$log->execute(['username'=>$account['benutzername'],'ip'=>$ip]);
      $error='Der Code ist nicht gültig. Prüfe die Uhrzeit deines Geräts oder nutze einen Wiederherstellungscode.';
     }else{
-     if($remaining!==null){$save=$db->prepare('UPDATE benutzer SET mfa_ersatzcodes_hashes=:codes WHERE id=:id');$save->execute(['codes'=>json_encode($remaining,JSON_THROW_ON_ERROR),'id'=>(int)$account['id']]);}
+     if($remaining!==null){$table=$accountRole==='client'?'coaching_portal_zugaenge':'benutzer';$keyColumn=$accountRole==='client'?'id':'id';$oldCodes=(string)($account['mfa_ersatzcodes_hashes']??'[]');$save=$db->prepare("UPDATE $table SET mfa_ersatzcodes_hashes=:codes WHERE $keyColumn=:id AND mfa_ersatzcodes_hashes=:old");$save->execute(['codes'=>json_encode($remaining,JSON_THROW_ON_ERROR),'id'=>(int)$account['id'],'old'=>$oldCodes]);if($save->rowCount()!==1){$error='Dieser Wiederherstellungscode wurde bereits verwendet. Bitte probiere einen anderen.';throw new InvalidArgumentException('Recovery code was already consumed.');}}
      $log=$db->prepare('INSERT INTO login_versuche (benutzername,ip_adresse,erfolgreich) VALUES (:username,:ip,1)');$log->execute(['username'=>$account['benutzername'],'ip'=>$ip]);
-     $last=$db->prepare('UPDATE benutzer SET letzter_login=NOW() WHERE id=:id');$last->execute(['id'=>(int)$account['id']]);
-     session_regenerate_id(true);$_SESSION['user']=['id'=>(int)$account['id'],'name'=>trim($account['vorname'].' '.$account['nachname']),'role'=>(string)$account['rolle']];unset($_SESSION['mfa_pending_user'],$_SESSION['csrf_token']);header('Location: ./');exit;
+     if($accountRole==='client'){$last=$db->prepare('UPDATE coaching_portal_zugaenge SET letzter_login=NOW() WHERE id=:id AND klient_id=:client');$last->execute(['id'=>(int)$account['id'],'client'=>(int)$account['klient_id']]);}else{$last=$db->prepare('UPDATE benutzer SET letzter_login=NOW() WHERE id=:id');$last->execute(['id'=>(int)$account['id']]);}
+     session_regenerate_id(true);$_SESSION['user']=['id'=>(int)$account['id'],'name'=>trim($account['vorname'].' '.$account['nachname']),'role'=>$accountRole];if($accountRole==='client')$_SESSION['user']['client_id']=(int)$account['klient_id'];unset($_SESSION['mfa_pending_user'],$_SESSION['csrf_token']);header('Location: ./');exit;
     }
    }
   }catch(Throwable $e){error_log('Coaching Tool MFA verification failed: '.$e->getMessage());$error='Die Zwei-Faktor-Anmeldung konnte nicht geprüft werden. Bitte starte die Anmeldung erneut.';}
