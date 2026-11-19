@@ -21,6 +21,7 @@ $activeUser = $_SESSION['user'] ?? null;
 $isFirstSetup = is_array($pending) && isset($pending['id'], $pending['role']) && $pending['role'] !== 'client';
 $isAuthenticatedSetup = is_array($activeUser) && isset($activeUser['id'], $activeUser['role']) && $activeUser['role'] !== 'client';
 if (!$isFirstSetup && !$isAuthenticatedSetup) { header('Location: ./'); exit; }
+if ($isAuthenticatedSetup && empty($_SESSION['mfa_setup_authorized'])) { header('Location: security-settings.php'); exit; }
 $identity = $isFirstSetup ? $pending : $activeUser;
 $db = coachingDatabase();
 $secret = $_SESSION['mfa_setup_secret'] ?? '';
@@ -42,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $saved->execute(['secret'=>coachingMfaEncrypt($secret),'recovery'=>json_encode($recovery['hashes'], JSON_THROW_ON_ERROR),'id'=>(int)$identity['id'],'role'=>(string)$identity['role']]);
             if ($saved->rowCount() !== 1) throw new RuntimeException('Das Benutzerkonto konnte nicht aktualisiert werden.');
             $_SESSION['mfa_recovery_codes_once'] = $recovery['codes'];
-            unset($_SESSION['mfa_setup_secret']);
+            unset($_SESSION['mfa_setup_secret'], $_SESSION['mfa_setup_authorized']);
             if ($isFirstSetup) {
                 $login = $db->prepare('UPDATE benutzer SET letzter_login=NOW() WHERE id=:id');
                 $login->execute(['id'=>(int)$identity['id']]);
