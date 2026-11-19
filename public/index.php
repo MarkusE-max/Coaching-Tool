@@ -120,14 +120,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
                 } else {
                     session_regenerate_id(true);
                     if (($user['rolle'] ?? '') !== 'client') {
-                        $_SESSION['mfa_pending_user'] = [
+                        if ((int) ($user['mfa_aktiv'] ?? 0) === 1) {
+                            $_SESSION['mfa_pending_user'] = [
+                                'id' => (int) $user['id'],
+                                'name' => trim($user['vorname'] . ' ' . $user['nachname']),
+                                'role' => (string) $user['rolle'],
+                            ];
+                            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                            header('Location: mfa-challenge.php');
+                            exit;
+                        }
+
+                        $updateLogin = $database->prepare('UPDATE benutzer SET letzter_login = NOW() WHERE id = :id');
+                        $updateLogin->execute(['id' => (int) $user['id']]);
+                        $_SESSION['user'] = [
                             'id' => (int) $user['id'],
                             'name' => trim($user['vorname'] . ' ' . $user['nachname']),
                             'role' => (string) $user['rolle'],
                         ];
-                        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-                        $target = (int) ($user['mfa_aktiv'] ?? 0) === 1 ? 'mfa-challenge.php' : 'mfa-setup.php';
-                        header('Location: ' . $target);
+                        unset($_SESSION['csrf_token']);
+                        header('Location: ./');
                         exit;
                     }
 
