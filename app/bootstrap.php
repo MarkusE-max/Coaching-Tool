@@ -60,3 +60,15 @@ function coachingDatabase(): PDO
         PDO::ATTR_TIMEOUT => 3,
     ]);
 }
+
+if (session_status() === PHP_SESSION_ACTIVE) {
+    $activeSessionUser = $_SESSION['user'] ?? null;
+    if (is_array($activeSessionUser)
+        && in_array(($activeSessionUser['role'] ?? ''), ['admin', 'verwalter', 'coach'], true)
+        && empty($_SESSION['mfa_verified'])) {
+        unset($_SESSION['user'], $_SESSION['csrf_token'], $_SESSION['mfa_pending_user']);
+        session_regenerate_id(true);
+        header('Location: ./');
+        exit;
+    }
+}
