@@ -22,7 +22,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements', 'notes', 'invoices'], true);
-    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'admins', 'format-categories'], true);
+    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'admins', 'format-categories', 'security-settings', 'room-calendar', 'room-settings'], true);
     require_once dirname(__DIR__) . '/app/theme.php';
     $themeDatabase = coachingDatabase();
     echo '<style>' . coachingThemeCss($themeDatabase, (int) $user['id']) . '</style>';
@@ -43,7 +43,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                 <a class="sidebar-link<?= $active === 'dashboard' ? ' is-active' : '' ?>" href="./"<?= $active === 'dashboard' ? ' aria-current="page"' : '' ?>>
                     <span class="sidebar-link-icon" aria-hidden="true">⌂</span><span>Übersicht</span>
                 </a>
-                <details class="sidebar-group"<?= $coachingOpen ? ' open' : '' ?>>
+                <?php if (!$isAdmin): ?><details class="sidebar-group"<?= $coachingOpen ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">◇</span><span>Coaching</span></summary>
                     <div class="sidebar-submenu">
                         <a class="sidebar-link<?= $isClientSelector ? ' is-active' : '' ?>" href="clients.php"<?= $isClientSelector ? ' aria-current="page"' : '' ?>>Klient anlegen / auswählen</a>
@@ -60,13 +60,22 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         </div>
                         <?php endif; ?>
                     </div>
-                </details>
+                </details><?php endif; ?>
                 <?php if ($role === 'coach'): ?>
                 <a class="sidebar-link<?= $active === 'formats' ? ' is-active' : '' ?>" href="formats.php"<?= $active === 'formats' ? ' aria-current="page"' : '' ?>><span class="sidebar-link-icon" aria-hidden="true">▣</span><span>Wissensdatenbank</span></a>
                 <?php endif; ?>
                 <details class="sidebar-group"<?= $settingsOpen ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">⚙</span><span>Einstellungen</span></summary>
                     <div class="sidebar-submenu">
+                        <?php if (in_array($role, ['admin','verwalter','coach'], true)): ?>
+                        <a class="sidebar-link<?= $active === 'security-settings' ? ' is-active' : '' ?>" href="security-settings.php"<?= $active === 'security-settings' ? ' aria-current="page"' : '' ?>>Sicherheit & Zwei-Faktor-Anmeldung</a>
+                        <?php endif; ?>
+                        <?php if (in_array($role, ['admin','coach'], true)): ?>
+                        <a class="sidebar-link<?= $active === 'room-calendar' ? ' is-active' : '' ?>" href="room-calendar.php"<?= $active === 'room-calendar' ? ' aria-current="page"' : '' ?>>Raumkalender</a>
+                        <?php endif; ?>
+                        <?php if ($isAdmin): ?>
+                        <a class="sidebar-link<?= $active === 'room-settings' ? ' is-active' : '' ?>" href="room-settings.php"<?= $active === 'room-settings' ? ' aria-current="page"' : '' ?>>Räume verwalten</a>
+                        <?php endif; ?>
                         <?php if ($role === 'coach'): ?>
                         <a class="sidebar-link<?= $active === 'invoice-settings' ? ' is-active' : '' ?>" href="invoice-settings.php"<?= $active === 'invoice-settings' ? ' aria-current="page"' : '' ?>>Rechnungseinstellungen</a>
                         <?php endif; ?>
