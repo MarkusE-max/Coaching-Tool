@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/modules.php';
 
 function coachingConfig(): array
 {
@@ -61,3 +62,4 @@ function coachingDatabase(): PDO
     ]);
 }
 
+coachingEnforceRouteModule();

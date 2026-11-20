@@ -175,6 +175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $databaseReady && $database instanc
 }
 
 $currentUser = $_SESSION['user'] ?? null;
+$coachModules = [];
+if (is_array($currentUser) && ($currentUser['role'] ?? '') === 'coach' && $database instanceof PDO && $databaseReady) $coachModules = coachingCoachModuleSettings($database, (int) $currentUser['id']);
 if (!is_array($currentUser) || !isset($currentUser['id'], $currentUser['role'], $currentUser['name'])) {
     $currentUser = null;
 }
@@ -224,10 +226,12 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
             $overdueQuery=$database->prepare("SELECT t.id,t.klient_id,t.beginn,t.dauer_minuten,t.format,k.vorname,k.nachname FROM termine t INNER JOIN klienten k ON k.id=t.klient_id INNER JOIN coaching_auftraege a ON a.id=t.auftrag_id AND a.klient_id=t.klient_id AND a.status='aktiv' LEFT JOIN coaching_klientenstatus cs ON cs.klient_id=k.id WHERE k.benutzer_id=:coach AND COALESCE(cs.status,'aktiv')<>'abgeschlossen' AND t.beginn<NOW() AND t.status NOT IN ('durchgefuehrt','durchgeführt','stattgefunden','abgeschlossen','abgesagt') AND NOT EXISTS (SELECT 1 FROM coaching_sitzungsnotizen n WHERE n.termin_id=t.id AND n.klient_id=t.klient_id AND n.coach_benutzer_id=:note_coach) ORDER BY t.beginn ASC LIMIT 20");
             $overdueQuery->execute(['coach'=>(int)$currentUser['id'],'note_coach'=>(int)$currentUser['id']]);
             $overdueAppointments=$overdueQuery->fetchAll();
+            if (empty($coachModules['termine'])) $overdueAppointments = [];
         }
         if (($currentUser['role'] ?? '') !== 'admin') {
             $clients = $clientQuery->fetchAll();
             $appointments = $appointmentQuery->fetchAll();
+            if (($currentUser['role'] ?? '') === 'coach' && empty($coachModules['termine'])) $appointments = [];
         }
         if (($currentUser['role'] ?? '') === 'coach') {
             $activityQuery = $database->prepare(
@@ -242,6 +246,7 @@ if ($currentUser !== null && $databaseReady && $database instanceof PDO) {
             );
             $activityQuery->execute(['coach' => (int) $currentUser['id']]);
             $activities = $activityQuery->fetchAll();
+            $activities = array_values(array_filter($activities, static fn(array $activity): bool => $activity['ereignistyp'] === 'coachee_nachricht' ? !empty($coachModules['coachee_chat']) : !empty($coachModules['aufgaben'])));
         }
     } catch (Throwable $error) {
         $dashboardError = 'Die Übersicht konnte nicht geladen werden.';
@@ -360,7 +365,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                         <?php endif; ?>
                     </section>
 
-                    <?php if ($currentUser['role'] === 'coach'): ?>
+                    <?php if ($currentUser['role'] === 'coach' && (!empty($coachModules['coachee_chat']) || !empty($coachModules['aufgaben']))): ?>
                     <section class="data-card">
                         <div class="card-heading"><h2>Neue Aktivitäten</h2><span><?= count($activities) ?></span></div>
                         <?php if ($activities === []): ?>
@@ -380,7 +385,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                     </section>
                     <?php endif; ?>
 
-                    <?php if ($currentUser['role'] === 'coach'): ?>
+                    <?php if ($currentUser['role'] === 'coach' && !empty($coachModules['termine'])): ?>
                     <section class="data-card">
                         <div class="card-heading"><h2>Überfällige Termine ohne Abschluss</h2><span><?= count($overdueAppointments) ?></span></div>
                         <?php if ($overdueAppointments === []): ?>
@@ -399,7 +404,7 @@ $formatLabels = ['vor_ort' => 'Vor Ort', 'telefon' => 'Telefon', 'video' => 'Vid
                     </section>
                     <?php endif; ?>
 
-                    <?php if ($currentUser['role'] !== 'verwalter'): ?><section class="data-card">
+                    <?php if ($currentUser['role'] !== 'verwalter' && ($currentUser['role'] !== 'coach' || !empty($coachModules['termine']))): ?><section class="data-card">
                         <div class="card-heading"><h2>Anstehende Termine</h2><span><?= count($appointments) ?></span></div>
                         <?php if ($appointments === []): ?>
                             <p class="empty-state">Es sind keine kommenden Termine geplant.</p>

@@ -12,6 +12,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $isAdmin = $role === 'admin';
     $isManager = $role === 'verwalter';
     $roleLabel = $isAdmin ? 'Administrator' : ($isManager ? 'Verwalter' : 'Coach');
+    $coachModules = $role === 'coach' ? coachingCoachModuleSettings(coachingDatabase(), (int) ($user['id'] ?? 0)) : [];
     $clientContextId=filter_input(INPUT_GET,'klient_id',FILTER_VALIDATE_INT);$clientContextId=$clientContextId===false||$clientContextId===null?0:(int)$clientContextId;if($clientContextId<1&&$active==='clients'&&basename((string)($_SERVER['SCRIPT_NAME']??''))==='client-overview.php'){$currentClientId=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);$clientContextId=$currentClientId===false||$currentClientId===null?0:(int)$currentClientId;}$clientContextSuffix=$clientContextId>0?'?klient_id='.$clientContextId:'';
     $isClientOverview=basename((string)($_SERVER['SCRIPT_NAME']??''))==='client-overview.php';
     $isClientSelector=$active==='clients'&&!$isClientOverview;
@@ -22,7 +23,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
     $displayName = (string) ($user['name'] ?? 'Benutzer');
     $initial = preg_match('/^./u', $displayName, $initialMatch) === 1 ? $initialMatch[0] : 'U';
     $coachingOpen = in_array($active, ['clients', 'appointments', 'goals', 'tasks', 'engagements', 'notes', 'invoices'], true);
-    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'admins', 'format-categories', 'security-settings', 'room-calendar', 'room-settings', 'mfa-reset'], true);
+    $settingsOpen = in_array($active, ['invoice-settings', 'email-settings', 'design', 'documents', 'calendar-settings', 'coaches', 'managers', 'admins', 'format-categories', 'security-settings', 'room-calendar', 'room-settings', 'mfa-reset', 'module-settings'], true);
     require_once dirname(__DIR__) . '/app/theme.php';
     $themeDatabase = coachingDatabase();
     echo '<style>' . coachingThemeCss($themeDatabase, (int) $user['id']) . '</style>';
@@ -50,13 +51,13 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                         <?php if ($role === 'coach' && $clientContextId > 0): ?>
                         <a class="sidebar-link<?= $isClientOverview ? ' is-active' : '' ?>" href="<?= coachingNavEscape($clientOverviewHref) ?>"<?= $isClientOverview ? ' aria-current="page"' : '' ?>>Klientenakte · <?= coachingNavEscape($clientContextName) ?></a>
                         <div class="sidebar-submenu">
-                            <a class="sidebar-link<?= $active === 'appointments' ? ' is-active' : '' ?>" href="appointments.php<?= $clientContextSuffix ?>"<?= $active === 'appointments' ? ' aria-current="page"' : '' ?>>Termine</a>
-                            <a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php<?= $clientContextSuffix ?>"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a>
-                            <a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php<?= $clientContextSuffix ?>"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Aufträge</a>
-                            <a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php<?= $clientContextSuffix ?>"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a>
-                            <a class="sidebar-link<?= $active === 'documents' ? ' is-active' : '' ?>" href="<?= coachingNavEscape($clientDocumentsHref) ?>"<?= $active === 'documents' ? ' aria-current="page"' : '' ?>>Dokumente verwalten</a>
+                            <?php if ($coachModules['termine']): ?><a class="sidebar-link<?= $active === 'appointments' ? ' is-active' : '' ?>" href="appointments.php<?= $clientContextSuffix ?>"<?= $active === 'appointments' ? ' aria-current="page"' : '' ?>>Termine</a><?php endif; ?>
+                            <?php if ($coachModules['aufgaben']): ?><a class="sidebar-link<?= $active === 'tasks' ? ' is-active' : '' ?>" href="tasks.php<?= $clientContextSuffix ?>"<?= $active === 'tasks' ? ' aria-current="page"' : '' ?>>Aufgaben</a><?php endif; ?>
+                            <?php if ($coachModules['auftraege']): ?><a class="sidebar-link<?= $active === 'engagements' ? ' is-active' : '' ?>" href="engagements.php<?= $clientContextSuffix ?>"<?= $active === 'engagements' ? ' aria-current="page"' : '' ?>>Aufträge</a><?php endif; ?>
+                            <?php if ($coachModules['ziele']): ?><a class="sidebar-link<?= $active === 'goals' ? ' is-active' : '' ?>" href="goals.php<?= $clientContextSuffix ?>"<?= $active === 'goals' ? ' aria-current="page"' : '' ?>>Ziele</a><?php endif; ?>
+                            <?php if ($coachModules['dokumente']): ?><a class="sidebar-link<?= $active === 'documents' ? ' is-active' : '' ?>" href="<?= coachingNavEscape($clientDocumentsHref) ?>"<?= $active === 'documents' ? ' aria-current="page"' : '' ?>>Dokumente verwalten</a><?php endif; ?>
                             <a class="sidebar-link<?= $active === 'notes' ? ' is-active' : '' ?>" href="notes.php<?= $clientContextSuffix ?>"<?= $active === 'notes' ? ' aria-current="page"' : '' ?>>Private Sitzungsnotizen</a>
-                            <a class="sidebar-link<?= $active === 'invoices' ? ' is-active' : '' ?>" href="invoices.php<?= $clientContextSuffix ?>"<?= $active === 'invoices' ? ' aria-current="page"' : '' ?>>Rechnung</a>
+                            <?php if ($coachModules['rechnungen']): ?><a class="sidebar-link<?= $active === 'invoices' ? ' is-active' : '' ?>" href="invoices.php<?= $clientContextSuffix ?>"<?= $active === 'invoices' ? ' aria-current="page"' : '' ?>>Rechnung</a><?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -67,6 +68,7 @@ function renderCoachingSidebar(array $user, string $active, string $token): void
                 <details class="sidebar-group"<?= $settingsOpen ? ' open' : '' ?>>
                     <summary><span class="sidebar-link-icon" aria-hidden="true">⚙</span><span>Einstellungen</span></summary>
                     <div class="sidebar-submenu">
+                        <?php if ($role === 'coach'): ?><a class="sidebar-link<?= $active === 'module-settings' ? ' is-active' : '' ?>" href="module-settings.php"<?= $active === 'module-settings' ? ' aria-current="page"' : '' ?>>Meine Funktionen</a><?php endif; ?>
                         <?php if (in_array($role, ['admin','verwalter','coach'], true)): ?>
                         <a class="sidebar-link<?= $active === 'security-settings' ? ' is-active' : '' ?>" href="security-settings.php"<?= $active === 'security-settings' ? ' aria-current="page"' : '' ?>>Sicherheit & Zwei-Faktor-Anmeldung</a>
                         <?php endif; ?>

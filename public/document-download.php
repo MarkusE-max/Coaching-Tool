@@ -30,7 +30,7 @@ if ($isClient) {
         http_response_code(403);
         exit('Der Coachee-Zugang ist nicht aktiv.');
     }
-    if((int)$portalAccess['zeige_dokumente']!==1){http_response_code(403);exit('Dokumente sind für deinen Zugang nicht freigegeben.');}
+    if((int)$portalAccess['zeige_dokumente']!==1){http_response_code(403);exit('Dokumente sind für deinen Zugang nicht freigegeben.');}$owner=$database->prepare('SELECT benutzer_id FROM klienten WHERE id=:client');$owner->execute(['client'=>$clientId]);$ownerCoach=(int)$owner->fetchColumn();if(!coachingModuleEnabled($database,$ownerCoach,'dokumente')){http_response_code(403);exit('Der Dokumentenbereich ist momentan nicht aktiviert.');}
 }
 $type = is_string($_GET['type'] ?? null) ? $_GET['type'] : '';
 $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
